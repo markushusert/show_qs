@@ -5,12 +5,15 @@
 from paraview.simple import *
 import os
 import subprocess
-g_
+import mesh_data
+import error_calculation
+
+g_dirs={"res":"Results","post":"Post"}
 
 def read_data():
 	subprocess.run(["pvdmake"])
 	# create a new 'PVD Reader'
-	pview_out_allpvd = PVDReader(registrationName='pview_out_all.pvd', FileName='/mnt/E46A96EC6A96BAAE/work/FEAP/feapnefm/taurus_rechnung/speedup/16proc/coarse/Results/pview_out_all.pvd')
+	pview_out_allpvd = PVDReader(registrationName='pview_out_all.pvd', FileName=os.path.join(g_dirs['res'],'/pview_out_all.pvd'))
 	pview_out_allpvd.PointArrays = ['temperatur',  'maxtemp', 'phase',  'evaporation']
 
 	# get active view
@@ -131,7 +134,7 @@ def make_screenshot(extractSelection1,extractSelection1Display):
 	renderView1.CameraParallelProjection = 1
 
 	# save screenshot
-	SaveScreenshot('./without_edges.png', renderView1, ImageResolution=[986, 481])
+	SaveScreenshot(os.path.join(g_dirs['post'],'without_edges.png'), renderView1, ImageResolution=[986, 481])
 
 	# get active source.
 	extractSelection1 = GetActiveSource()
@@ -142,61 +145,34 @@ def make_screenshot(extractSelection1,extractSelection1Display):
 	# change representation type
 	extractSelection1Display.SetRepresentationType('Surface With Edges')
 
-	# layout/tab size in pixels
-	layout1.SetSize(986, 481)
-
-	# current camera placement for renderView1
-	renderView1.CameraPosition = [0.0008944676433444404, 0.012937819867921191, 0.0008607683051164721]
-	renderView1.CameraFocalPoint = [0.0008944676433444404, -0.00164414046, 0.0008607683051164721]
-	renderView1.CameraViewUp = [0.0, 0.0, 1.0]
-	renderView1.CameraParallelScale = 0.0012860993104049244
-	renderView1.CameraParallelProjection = 1
-
 	# save screenshot
-	SaveScreenshot('./with_edges.png', renderView1, ImageResolution=[986, 481])
+	SaveScreenshot(os.path.join(g_dirs['post'],'with_edges.png'), renderView1, ImageResolution=[986, 481])
+
+def main():
+	for dir in g_dirs.values():
+		if not os.path.isdir(dir):
+			os.makedirs(dir)
+	
+	#### disable automatic camera reset on 'Show'
+	paraview.simple._DisableFirstRenderCameraReset()
+
+	pview_out_allpvd,pview_out_allpvdDisplay,renderView1=read_data()
 
 
-#### disable automatic camera reset on 'Show'
-paraview.simple._DisableFirstRenderCameraReset()
+	# create a frustum selection of cells
+	extractSelection1,extractSelection1Display=select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay)
 
-pview_out_allpvd,pview_out_allpvdDisplay,renderView1=read_data()
+	# hide data in view
+	Hide(pview_out_allpvd, renderView1)
 
-# set scalar coloring
-#ColorBy(pview_out_allpvdDisplay, ('POINTS', 'phase', 'Magnitude'))
-
-# Hide the scalar bar for this color map if no visible data is colored by it.
-#HideScalarBarIfNotNeeded(vtkBlockColorsLUT, renderView1)
-
-# rescale color and/or opacity maps used to include current data range
-#pview_out_allpvdDisplay.RescaleTransferFunctionToDataRange(True, False)
-
-# show color bar/color legend
-#pview_out_allpvdDisplay.SetScalarBarVisibility(renderView1, True)
+	# update the view to ensure updated data information
+	renderView1.Update()
 
 
-
-# create a frustum selection of cells
-extractSelection1,extractSelection1Display=select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay)
-
-# hide data in view
-Hide(pview_out_allpvd, renderView1)
-
-# update the view to ensure updated data information
-renderView1.Update()
-
-
-
-#================================================================
-# addendum: following script captures some of the application
-# state to faithfully reproduce the visualization during playback
-#================================================================
-
-# get layout
-layout1 = GetLayout()
-
-#--------------------------------
-# saving layout sizes for layouts
-
-
-
-make_screenshot(extractSelection1,extractSelection1Display)
+	make_screenshot(extractSelection1,extractSelection1Display)
+	mesh_data.g_mesh_data=mesh_data.read_mesh_data()
+	nodeid=mesh_data.get_node_id({"r":mesh_data.g_mesh_data["r"]/2,"p":mesh_data.g_mesh_data["p"]/2,"z":mesh_data.g_mesh_data["z"]/2})
+	print("deducted-none: "+str(nodeid))
+	
+if __name__=="__main__":
+	main()

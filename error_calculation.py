@@ -2,11 +2,9 @@ import sys
 import os
 import math
 
-expected_result_file="expected_results.txt"
-g_Post_dir="Post"
 
-if not(os.path.isdir(g_Post_dir)):
-    os.makedirs(g_Post_dir)
+g_script_dir = os.path.dirname(os.path.realpath(__file__))
+expected_result_file=os.path.join(g_script_dir,"expected_results.txt")
 
 with open(expected_result_file,"r") as fil:
     lines=fil.readlines()
