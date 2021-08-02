@@ -158,15 +158,43 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,pview_out_allpvd):
 	iter_r_half=int(1+mesh_data.g_mesh_data["r"]/2)
 	iter_r_end=1+mesh_data.g_mesh_data["r"]
 
+	current_phase=2
+	list_of_values=[]
 	for iter_r in range(iter_r_half,iter_r_end+1):
 		iter_dict={"r":iter_r,"p":iter_phi_qs,"z":iter_z}
 		nodeid=mesh_data.get_node_id(iter_dict)
+		
 
 		phase_of_node=partitions.get_array_value_of_global_id(partition_node_dict,pview_out_allpvd,nodeid,'phase')
 		coords_of_node=partitions.get_array_value_of_global_id(partition_node_dict,pview_out_allpvd,nodeid,'coords')
 		radius=math.sqrt(coords_of_node[0]**2+coords_of_node[1]**2)
+		
+		if iter_r==iter_r_half:
+			radius_start=radius
+
 		if True:
 			print("iter_r: "+str(iter_r)+"phase: "+str(phase_of_node)+" radius: "+str(radius))
+
+		if phase_of_node[current_phase-1]!=1.0:
+			#either the evaporated or the wez intervall has stopped
+
+			#calculate width of current element
+			iter_dict["r"]+=1
+			nodeid_preceeding=mesh_data.get_node_id(iter_dict)
+			coords_of_preceeding_node=partitions.get_array_value_of_global_id(partition_node_dict,pview_out_allpvd,nodeid_preceeding,'coords')
+			radius_preceeding=math.sqrt(coords_of_preceeding_node[0]**2+coords_of_preceeding_node[1]**2)
+			delr=radius-radius_preceeding
+
+			#calculate intervall length
+			radius_start_new=radius-delr*(1.0-phase_of_node[current_phase-1])
+			list_of_values.append(radius_start_new-radius_start)
+			radius_start=radius_start_new
+
+			#now consider a new phase
+			current_phase=current_phase-1
+			if current_phase==0:
+				break
+	return tuple(list_of_values)
 
 
 def test_node_ids():
@@ -206,7 +234,7 @@ def main():
 
 	partition_node_dict=partitions.read_partitions(g_dirs['res'])
 	partition_vtk_data_dict=partitions.split_vtkdata(pview_out_allpvd)
-	get_wez_of_iter_z(24,iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
+	print(get_wez_of_iter_z(24,iter_phi_qs,partition_node_dict,partition_vtk_data_dict))
 
 
 	
