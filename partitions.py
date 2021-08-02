@@ -44,6 +44,37 @@ def read_partition_file(partition_file,node_partition):
                 global_node=int(linesplit[1])
                 node_partition[global_node].append((partition_id,local_node))
 
+def get_array_value_of_global_id(node_partition,data_split_into_partitions,global_id,arrayname):
+    #node_partition: dict as returned by read_partitions
+    #data_split_into_partitions: dict as returned by split_vtkdata()
+
+    #one global node may exist in several partitions (ghost nodes)
+
+    local_adresses_of_global_node=node_partition[global_id]
+    set_of_array_values=set()
+    for partition_id,local_id in local_adresses_of_global_node:
+        partition_data=data_split_into_partitions[partition_id]
+        if arrayname=="coords":
+            array_value=partition_data[1].GetPoint(local_id-1)
+        else:
+            array_value=partition_data[0].GetAbstractArray(arrayname).GetTuple(local_id-1)
+        if False: #no checking the other occurences, since all ghost nodes should have the same value
+            return array_value
+        else:
+            set_of_array_values.add(array_value)
+
+    
+    if len(set_of_array_values)>1:
+        print("ERROR, different values for ghost nodes of global node"+str(global_id))
+        print("partitions and local nodes: "+str(local_adresses_of_global_node))
+        print("detected values: "+str(set_of_array_values))
+    elif len(set_of_array_values)==0:
+        print("ERROR no data found for node "+str(global_id))
+    else:
+        for value in set_of_array_values:
+            return value
+
+
 def split_vtkdata(pvdreader):
     #splits pvdreader into mesh-and array data for each partition
     #returns dict of structure: {partition_id:(array_data,mesh_data)}
@@ -69,7 +100,6 @@ def split_vtkdata(pvdreader):
         mesh_data=blockdata.GetPoints()
         array_data=blockdata.GetPointData()
         return_dict[i_part]=(array_data,mesh_data)
-    
     return return_dict
 
 

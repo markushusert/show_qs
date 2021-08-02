@@ -7,7 +7,7 @@ from paraview.vtk.numpy_interface import dataset_adapter as dsa
 from paraview.vtk.numpy_interface import algorithms as algs
 from paraview import servermanager as sm
 from paraview.vtk.numpy_interface import dataset_adapter as dsa
-
+import math
 import os
 import sys
 import subprocess
@@ -138,7 +138,7 @@ def make_screenshot(extractSelection1,extractSelection1Display):
 
 	# save screenshot
 	SaveScreenshot(os.path.join(g_dirs['post'],'with_edges.png'), renderView1, ImageResolution=[986, 481])
-def get_wez_of_layer(layer_number,iter_phi_qs,pipeline_object):
+def get_wez_of_layer(layer_number,iter_phi_qs,partition_node_dict,pview_out_allpvd):
 	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/12
 	iter_z_start=1+(layer_number-1)*nr_ele_per_layer
 	iter_z_end=1+(layer_number)*nr_ele_per_layer
@@ -148,28 +148,26 @@ def get_wez_of_layer(layer_number,iter_phi_qs,pipeline_object):
 			weight=0.5
 		else:
 			weight=1.0
-		get_wez_of_iter_z(iter_z,iter_phi_qs,pipeline_object)
+		get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,pview_out_allpvd)
 
-def get_wez_of_iter_z(iter_z,iter_phi_qs,pipeline_object):
+def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,pview_out_allpvd):
+	#pipeline_object=paraview.servermanager.PvdReader
+	#partition_node_dict, dict as returned by partitions.read_partitions
+	#pview_out_allpvd, dict as returned by partitions.split_vtkdata
 	
 	iter_r_half=int(1+mesh_data.g_mesh_data["r"]/2)
 	iter_r_end=1+mesh_data.g_mesh_data["r"]
 
-	if True:
-		print("pipeline_object="+str(pipeline_object))
-		print(type(pipeline_object))
-		print(pipeline_object.VTKObject)
-		print("point_data available:"+str(pipeline_object.PointData.keys()))
-		phase_data=pipeline_object.PointData['phase']
-		print("shape of data:")
-		print(algs.shape(phase_data))
-		print("type of data:")
-		print(type(phase_data))
-
-	for iter_r in range(iter_r_half,iter_r_end):
+	for iter_r in range(iter_r_half,iter_r_end+1):
 		iter_dict={"r":iter_r,"p":iter_phi_qs,"z":iter_z}
 		nodeid=mesh_data.get_node_id(iter_dict)
-		print("phase of iters:"+str(iter_dict)+"is"+phase_data[nodeid-1])
+
+		phase_of_node=partitions.get_array_value_of_global_id(partition_node_dict,pview_out_allpvd,nodeid,'phase')
+		coords_of_node=partitions.get_array_value_of_global_id(partition_node_dict,pview_out_allpvd,nodeid,'coords')
+		radius=math.sqrt(coords_of_node[0]**2+coords_of_node[1]**2)
+		if True:
+			print("iter_r: "+str(iter_r)+"phase: "+str(phase_of_node)+" radius: "+str(radius))
+
 
 def test_node_ids():
 	
@@ -184,8 +182,6 @@ def main():
 	for dir in g_dirs.values():
 		if not os.path.isdir(dir):
 			os.makedirs(dir)
-
-	#the following 2 functions are an example of accessing the data stored in the vtu-files
 	
 	#### disable automatic camera reset on 'Show'
 	paraview.simple._DisableFirstRenderCameraReset()
@@ -203,11 +199,15 @@ def main():
 	make_screenshot(extractSelection1,extractSelection1Display)
 	mesh_data.read_mesh_data()
 
-	test_node_ids()
+	#test_node_ids()
 	
 	iter_phi_qs=mesh_data.deduct_iter_phi_to_eval(error_calculation.g_phiqs)
 	print("iter_phi_of_qs="+str(iter_phi_qs))
-	get_wez_of_iter_z(1,iter_phi_qs,pview_out_allpvd)
+
+	partition_node_dict=partitions.read_partitions(g_dirs['res'])
+	partition_vtk_data_dict=partitions.split_vtkdata(pview_out_allpvd)
+	get_wez_of_iter_z(24,iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
+
 
 	
 if __name__ in ["__main__","__vtkconsole__"]:
