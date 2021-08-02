@@ -22,6 +22,10 @@ with open(expected_result_file,"r") as fil:
         elif line.startswith("delr:"):
             valuestring=line.split(":",1)[1]
             g_delr=float(eval(valuestring))
+        elif line.startswith("phiqs:"):
+            valuestring=line.split(":",1)[1]
+            g_phiqs=float(eval(valuestring))*math.pi
+            
 g_wez=[value*g_wez_fac for value in g_wez]
 print("g_delr="+str(g_delr))
 print("g_wez="+str(g_wez))
