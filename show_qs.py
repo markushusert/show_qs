@@ -7,6 +7,7 @@ from paraview.vtk.numpy_interface import dataset_adapter as dsa
 from paraview.vtk.numpy_interface import algorithms as algs
 from paraview import servermanager as sm
 from paraview.vtk.numpy_interface import dataset_adapter as dsa
+import numpy as np
 import math
 import os
 import sys
@@ -17,6 +18,7 @@ import mesh_data
 import error_calculation
 import paraview_interaction
 import partitions
+g_debugflag=False
 g_dirs={"res":"Results","post":"Post"}
 
 
@@ -138,22 +140,86 @@ def make_screenshot(extractSelection1,extractSelection1Display):
 
 	# save screenshot
 	SaveScreenshot(os.path.join(g_dirs['post'],'with_edges.png'), renderView1, ImageResolution=[986, 481])
-def get_wez_of_layer(layer_number,iter_phi_qs,partition_node_dict,pview_out_allpvd):
-	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/12
-	iter_z_start=1+(layer_number-1)*nr_ele_per_layer
-	iter_z_end=1+(layer_number)*nr_ele_per_layer
+def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict):
+	number_eles=round(mesh_data.g_mesh_data["z"])
+	cut_values=list()
+	wez_values=list()
+	for iter_z in range(1,number_eles+1+1):#example: 36 elements->37 nodes->iter_z goes from 1 to 37
+		cut,wez=get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
+		cut_values.append(cut)
+		wez_values.append(wez)
+	return np.array(cut_values),np.array(wez_values)
 
-	for iter_z in range(iter_z_start,iter_z_end):
-		if iter_z in [iter_z_start,iter_z_end]:
+def get_wez(cut_iter_values,wez_iter_values):
+	nr_nodes_z=mesh_data.g_mesh_data["z"]+1
+	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/12
+	highest_uncut_iter_z=None
+	min_schnitt=math.inf
+	max_schnitt=-math.inf
+	wez_ges=[None for i in range(12)]
+	schnitt_ges=[None for i in range(12)]
+
+	for iter_layer in range(1,13):
+		#eval layer
+		schnittmean,wezmean,min_schnitt_r,max_schnitt_r,first_uncut=get_wez_of_layer(iter_layer,cut_iter_values,wez_iter_values)
+		
+		#reduce evaluations
+		min_schnitt=min([min_schnitt,min_schnitt_r])
+		max_schnitt=max([max_schnitt,max_schnitt_r])
+		wez_ges[iter_layer-1]=wezmean
+		schnitt_ges[iter_layer-1]=schnittmean
+		if first_uncut:
+			highest_uncut_iter_z=first_uncut
+
+		continue
+		nr_ele_per_layer=mesh_data.g_mesh_data["z"]/12
+		iter_z_start=1+(iter_layer)*nr_ele_per_layer
+		iter_z_end=1+(iter_layer-1)*nr_ele_per_layer
+		for iter_z in range(iter_z_start,iter_z_end-1,-1):
+			
+			schnitt,wez=get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,pview_out_allpvd)
+			#current z-line has not been cut, and its the first case
+			if schnitt==0.0 and highest_uncut_iter_z!=0:
+				highest_uncut_iter_z=iter_z
+			
+	return schnitt_ges,wez_ges,max_schnitt-min_schnitt,highest_uncut_iter_z
+
+
+def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
+	nr_ele_per_layer=round(mesh_data.g_mesh_data["z"]/12)
+	iter_z_high=(layer_number)*nr_ele_per_layer
+	iter_z_low=(layer_number-1)*nr_ele_per_layer
+
+	first_wez_uncut=None
+	weight_acc=0.0
+	schnitt_acc=0.0
+	wez_acc=0.0
+	min_schnitt=math.inf
+	max_schnitt=-math.inf
+	for iter_z in range(iter_z_low,iter_z_high+1):
+		if iter_z in [iter_z_high,iter_z_low]:
 			weight=0.5
 		else:
 			weight=1.0
-		get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,pview_out_allpvd)
+		delr_schnitt=cut_iter_values[iter_z]
+		delr_wez=wez_iter_values[iter_z]
 
-def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,pview_out_allpvd):
+		if delr_schnitt==0.0:
+			first_wez_uncut=iter_z
+
+		weight_acc+=weight
+		schnitt_acc+=delr_schnitt*weight
+		wez_acc+=delr_wez*weight
+		min_schnitt=min([delr_schnitt,min_schnitt])
+		max_schnitt=max([delr_schnitt,max_schnitt])
+		if g_debugflag:
+			print("iter_z: "+str(iter_z)+", in layer: "+str(layer_number)+" has wez: "+str(delr_wez))
+	return schnitt_acc/weight_acc, wez_acc/weight_acc,min_schnitt,max_schnitt,first_wez_uncut
+
+def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict):
 	#pipeline_object=paraview.servermanager.PvdReader
 	#partition_node_dict, dict as returned by partitions.read_partitions
-	#pview_out_allpvd, dict as returned by partitions.split_vtkdata
+	#partition_vtk_data_dict, dict as returned by partitions.split_vtkdata
 	
 	iter_r_half=int(1+mesh_data.g_mesh_data["r"]/2)
 	iter_r_end=1+mesh_data.g_mesh_data["r"]
@@ -162,39 +228,46 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,pview_out_allpvd):
 	list_of_values=[]
 	for iter_r in range(iter_r_half,iter_r_end+1):
 		iter_dict={"r":iter_r,"p":iter_phi_qs,"z":iter_z}
-		nodeid=mesh_data.get_node_id(iter_dict)
-		
+		nodeid=mesh_data.get_node_id(iter_dict)		
 
-		phase_of_node=partitions.get_array_value_of_global_id(partition_node_dict,pview_out_allpvd,nodeid,'phase')
-		coords_of_node=partitions.get_array_value_of_global_id(partition_node_dict,pview_out_allpvd,nodeid,'coords')
+		phase_of_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'phase')
+		coords_of_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'coords')
 		radius=math.sqrt(coords_of_node[0]**2+coords_of_node[1]**2)
 		
 		if iter_r==iter_r_half:
 			radius_start=radius
 
-		if True:
+		if False:
 			print("iter_r: "+str(iter_r)+"phase: "+str(phase_of_node)+" radius: "+str(radius))
 
-		if phase_of_node[current_phase-1]!=1.0:
+		while phase_of_node[current_phase-1]!=1.0:
 			#either the evaporated or the wez intervall has stopped
 
 			#calculate width of current element
-			iter_dict["r"]+=1
+			iter_dict["r"]=iter_r-1
 			nodeid_preceeding=mesh_data.get_node_id(iter_dict)
-			coords_of_preceeding_node=partitions.get_array_value_of_global_id(partition_node_dict,pview_out_allpvd,nodeid_preceeding,'coords')
+			coords_of_preceeding_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_preceeding,'coords')
 			radius_preceeding=math.sqrt(coords_of_preceeding_node[0]**2+coords_of_preceeding_node[1]**2)
 			delr=radius-radius_preceeding
 
 			#calculate intervall length
-			radius_start_new=radius-delr*(1.0-phase_of_node[current_phase-1])
+			if iter_r==iter_r_half:
+				radius_start_new=radius+delr*0.5*(phase_of_node[current_phase-1])
+			else:
+				radius_start_new=radius+delr*(-0.5+phase_of_node[current_phase-1])
 			list_of_values.append(radius_start_new-radius_start)
+			if False:
+				print("delr:"+str(delr)+", factior: "+str(1.0-phase_of_node[current_phase-1]))
+				print("phase end of phase "+str(current_phase))
+				print("radius_start_new="+str(radius_start_new)+"radius_start="+str(radius_start))
 			radius_start=radius_start_new
 
+			
 			#now consider a new phase
 			current_phase=current_phase-1
 			if current_phase==0:
-				break
-	return tuple(list_of_values)
+				return tuple(list_of_values)
+	
 
 
 def test_node_ids():
@@ -230,14 +303,26 @@ def main():
 	#test_node_ids()
 	
 	iter_phi_qs=mesh_data.deduct_iter_phi_to_eval(error_calculation.g_phiqs)
-	print("iter_phi_of_qs="+str(iter_phi_qs))
+	if g_debugflag:
+		print("iter_phi_of_qs="+str(iter_phi_qs))
 
 	partition_node_dict=partitions.read_partitions(g_dirs['res'])
 	partition_vtk_data_dict=partitions.split_vtkdata(pview_out_allpvd)
-	print(get_wez_of_iter_z(24,iter_phi_qs,partition_node_dict,partition_vtk_data_dict))
 
+	cut_iter_values,wez_iter_values=get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
 
-	
+	schnitt_ges,wez_ges,delr,highest_uncut_iter_z=get_wez(cut_iter_values,wez_iter_values)
+	ratio_uncut=highest_uncut_iter_z/(mesh_data.g_mesh_data["z"]+1)
+	#print(get_wez_of_iter_z(24,iter_phi_qs,partition_node_dict,partition_vtk_data_dict))
+	if g_debugflag:
+		print("schnitt="+str(schnitt_ges))
+		print("wez="+str(wez_ges))
+		print("delr="+str(delr))
+		print("highest_uncut_iter_z="+str(highest_uncut_iter_z))
+
+	error_calculation.calulate_res_error(wez_ges,delr,ratio_uncut)
+	error_calculation.write_error_file(g_dirs['post'])
+
 if __name__ in ["__main__","__vtkconsole__"]:
 	main()
 	pass

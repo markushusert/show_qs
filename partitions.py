@@ -2,25 +2,42 @@ import glob
 from paraview.simple import *
 from paraview.vtk.numpy_interface import dataset_adapter as dsa
 from paraview.vtk.numpy_interface import algorithms as algs
-from paraview import servermanager as sm
+from paraview import servermanager as sm, vtk
 from paraview.vtk.numpy_interface import dataset_adapter as dsa
 from collections import defaultdict
 import os
 import inspect
 import sys
 global nr_partitions
+
+import collections
+class KeyBasedDefaultDict(collections.defaultdict):
+    def __missing__(self, key):
+        if self.default_factory is None:
+            raise KeyError(key)
+        self[key] = self.default_factory(key)
+        return self[key]
+
 def read_partitions(Resultdir):
     #
     #Reads partition data from
     #
-    node_partition=defaultdict(list)
+    
     #! dict of type: {global_id:[(partion_id1,lokal_id1),..,(partion_idn,lokal_idn)]}
     #where global_id is the global id of a node, who belongs to n partitions (see Ghost-nodes)
 
     list_of_partition_files=get_partition_files(Resultdir)
     print("reading partition data")
-    for partition_file in list_of_partition_files:
-        read_partition_file(partition_file,node_partition)
+    if len(list_of_partition_files):
+        node_partition=defaultdict(list)
+        #parallele rechnung
+        for partition_file in list_of_partition_files:
+            read_partition_file(partition_file,node_partition)
+    else:
+        def get_default_partition(nodeid):
+            return [(1,nodeid)]
+        node_partition=KeyBasedDefaultDict(get_default_partition)
+        pass
     return node_partition
 def get_partition_files(Resultdir):
     partition_files_pattern=os.path.join(Resultdir,"I_*"+"[0-9]"*4)
@@ -28,6 +45,7 @@ def get_partition_files(Resultdir):
 
 def read_partition_file(partition_file,node_partition):
     #node_partition=defaultdict of type list, to be filled with partition data from each file
+    #matches each global-node to a list of tuples of its partitions and local ids
     found_partition=False
     partition_id=int(partition_file.rsplit("_",1)[1])
     print("reading partition of: "+partition_file)
@@ -92,15 +110,23 @@ def split_vtkdata(pvdreader):
 
 
     vtk_data = sm.Fetch(pvdreader)
-    vtk_data = dsa.WrapDataObject(vtk_data)
-    nr_parts = vtk_data.GetNumberOfBlocks()
-    return_dict={}
-    for i_part in range(1,nr_parts+1):
-        blockdata=vtk_data.GetBlock(i_part-1).GetBlock(0) #for some reason each block contains a single block in itself
-        mesh_data=blockdata.GetPoints()
-        array_data=blockdata.GetPointData()
-        return_dict[i_part]=(array_data,mesh_data)
-    return return_dict
+    print(str(type(vtk_data)))
+    #if serial calculation we do not have a composite dataset but a unstructuredgrid directly
+    if str(type(vtk_data)).endswith("vtkUnstructuredGrid'>"):
+        return_dict={}
+        return_dict[1]=(vtk_data.GetPointData(),vtk_data.GetPoints())
+        return return_dict
+    else:
+        vtk_data = dsa.WrapDataObject(vtk_data)
+        
+        nr_parts = vtk_data.GetNumberOfBlocks()
+        return_dict={}
+        for i_part in range(1,nr_parts+1):
+            blockdata=vtk_data.GetBlock(i_part-1).GetBlock(0) #for some reason each block contains a single block in itself
+            mesh_data=blockdata.GetPoints()
+            array_data=blockdata.GetPointData()
+            return_dict[i_part]=(array_data,mesh_data)
+        return return_dict
 
 
 
