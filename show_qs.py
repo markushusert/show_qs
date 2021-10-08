@@ -8,6 +8,7 @@ from paraview.vtk.numpy_interface import algorithms as algs
 from paraview import servermanager as sm
 from paraview.vtk.numpy_interface import dataset_adapter as dsa
 import numpy as np
+import matplotlib.pyplot as plt
 import math
 import os
 import sys
@@ -20,6 +21,7 @@ import paraview_interaction
 import partitions
 g_debugflag=False
 g_dirs={"res":"Results","post":"Post"}
+g_specimen_thickness=1.8*10**(-3)
 
 
 def select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay):
@@ -151,9 +153,8 @@ def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict
 	return np.array(cut_values),np.array(wez_values)
 
 def get_wez(cut_iter_values,wez_iter_values):
-	nr_nodes_z=mesh_data.g_mesh_data["z"]+1
 	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/12
-	highest_uncut_iter_z=None
+	highest_uncut_iter_z=0
 	min_schnitt=math.inf
 	max_schnitt=-math.inf
 	wez_ges=[None for i in range(12)]
@@ -205,7 +206,7 @@ def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 		delr_wez=wez_iter_values[iter_z]
 
 		if delr_schnitt==0.0:
-			first_wez_uncut=iter_z
+			first_wez_uncut=iter_z+1#+1 because iter_z starts at 0, but highest uncut should start at 1
 
 		weight_acc+=weight
 		schnitt_acc+=delr_schnitt*weight
@@ -213,7 +214,7 @@ def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 		min_schnitt=min([delr_schnitt,min_schnitt])
 		max_schnitt=max([delr_schnitt,max_schnitt])
 		if g_debugflag:
-			print("iter_z: "+str(iter_z)+", in layer: "+str(layer_number)+" has wez: "+str(delr_wez))
+			print("iter_z: "+str(iter_z)+", in layer: "+str(layer_number)+" has wez: "+str(delr_wez)+" and cut: "+str(delr_schnitt))
 	return schnitt_acc/weight_acc, wez_acc/weight_acc,min_schnitt,max_schnitt,first_wez_uncut
 
 def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict):
@@ -278,6 +279,30 @@ def test_node_ids():
 	print("deducted-node: "+str(nodeid))
 	node_iters=mesh_data.get_node_iter(nodeid)
 	print("deducted iters"+str(node_iters))
+def plot_results(post_dir,cut_iter_values,wez_iter_values):
+	plot_file=os.path.join(post_dir,"kerf_and_haz.png")
+	equal_ratio_file=os.path.join(post_dir,"kerf_and_haz_equal.png")
+
+	y_values=np.linspace(0,g_specimen_thickness,mesh_data.g_mesh_data["z"]+1)
+	fig, ax = plt.subplots()
+	linewidth=0.5
+	handle_cut,=ax.plot(cut_iter_values,y_values,color="red",label="kerf",linewidth=linewidth)
+	handle_wez,=ax.plot(wez_iter_values,y_values,color="blue",label="HAZ",linewidth=linewidth)
+	plt.legend(handles=[handle_cut,handle_wez])
+
+	ax.set_aspect('auto')
+	fig.savefig(plot_file)
+
+	ax.set_aspect('equal')
+	fig.savefig(equal_ratio_file)
+
+
+def write_results(filename,cut_iter_values,wez_iter_values):
+	with open(filename,"w") as fil:
+		cut_2d=np.reshape(cut_iter_values, (-1, 1))
+		wez_2d=np.reshape(wez_iter_values, (-1, 1))
+		data=np.concatenate((cut_2d,wez_2d),axis=1)
+		np.savetxt(fil,data,header="cut; wez")
 
 def main():
 	for dir in g_dirs.values():
@@ -310,8 +335,11 @@ def main():
 	partition_vtk_data_dict=partitions.split_vtkdata(pview_out_allpvd)
 
 	cut_iter_values,wez_iter_values=get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
+	write_results(os.path.join(g_dirs['post'],"wez-values.txt"),cut_iter_values,wez_iter_values)
+	plot_results(g_dirs['post'],cut_iter_values,wez_iter_values)
 
 	schnitt_ges,wez_ges,delr,highest_uncut_iter_z=get_wez(cut_iter_values,wez_iter_values)
+	write_results(os.path.join(g_dirs['post'],"wez-layer.txt"),schnitt_ges,wez_ges)
 	ratio_uncut=highest_uncut_iter_z/(mesh_data.g_mesh_data["z"]+1)
 	#print(get_wez_of_iter_z(24,iter_phi_qs,partition_node_dict,partition_vtk_data_dict))
 	if g_debugflag:
@@ -322,6 +350,7 @@ def main():
 
 	error_calculation.calulate_res_error(wez_ges,delr,ratio_uncut)
 	error_calculation.write_error_file(g_dirs['post'])
+	
 
 if __name__ in ["__main__","__vtkconsole__"]:
 	main()
