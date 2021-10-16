@@ -7,6 +7,11 @@ from paraview.vtk.numpy_interface import dataset_adapter as dsa
 import subprocess
 
 def read_data(data_dir):
+	#function reads *.vtu files in data_dir into paraview
+	#it first executes arnes pvdmake-script
+	#then reads the pvdfile into paraview
+	#returns data-object,display-object,and current view
+
 	if not os.path.isdir(data_dir):
 		print(".vtu-Files are expected to lie in "+os.path.abspath(data_dir))
 		print("which does not exist")
@@ -18,8 +23,9 @@ def read_data(data_dir):
 		print("error running pvdmake in "+os.path.abspath(data_dir))
 		print("make sure pvdmake is executable and the dir contains vtu-files")
 		raise Exception
-
 	os.chdir('../')
+
+
 	# create a new 'PVD Reader'
 	data_path=os.path.join(data_dir,'pview_out_all.pvd')
 	

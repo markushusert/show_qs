@@ -20,7 +20,7 @@ class KeyBasedDefaultDict(collections.defaultdict):
 
 def read_partitions(Resultdir):
     #
-    #Reads partition data from
+    #Reads partition data from partition files in the Resultdir
     #
     
     #! dict of type: {global_id:[(partion_id1,lokal_id1),..,(partion_idn,lokal_idn)]}
@@ -34,18 +34,26 @@ def read_partitions(Resultdir):
         for partition_file in list_of_partition_files:
             read_partition_file(partition_file,node_partition)
     else:
+    	#serial calculation, make defaultdict that always returns partition one and same nodeid
+    	
+    	#local definition of function
         def get_default_partition(nodeid):
             return [(1,nodeid)]
+            
         node_partition=KeyBasedDefaultDict(get_default_partition)
         pass
     return node_partition
 def get_partition_files(Resultdir):
+    #returns list of partitionfiles in Resultdir
     partition_files_pattern=os.path.join(Resultdir,"I_*"+"[0-9]"*4)
     return glob.glob(partition_files_pattern)
 
 def read_partition_file(partition_file,node_partition):
+    #adds local node and partition decribed in partition_file to their global node
+
+    #partition_file=file named I_{calculationname}{partitionnr}
     #node_partition=defaultdict of type list, to be filled with partition data from each file
-    #matches each global-node to a list of tuples of its partitions and local ids
+    
     found_partition=False
     partition_id=int(partition_file.rsplit("_",1)[1])
     print("reading partition of: "+partition_file)
@@ -101,16 +109,16 @@ def split_vtkdata(pvdreader):
     #and array_data is of type:vtkmodules.vtkCommonDataModel.vtkPointData and can be accessed like this
     #   array_data.GetAbstractArray('array_name').GetTuple(n) returns all dimensions of 'array_name' at the nth local node
 
-    #print(inspect.getsource(type(pvdreader)))
+    #i did not use isinstance because it somehow does not work with paraview-classes
     if str(type(pvdreader))!="<class \'paraview.servermanager.PVDReader\'>":
         #i have only tried with this reader, but may also work with others
-        print("input of function splot_vtkdata should be of type paraview.servermanager.PVDReader")
+        print("input of function split_vtkdata should be of type paraview.servermanager.PVDReader")
         print("instead got a "+str(type(pvdreader)))
         exit(1)
 
 
     vtk_data = sm.Fetch(pvdreader)
-    print(str(type(vtk_data)))
+    
     #if serial calculation we do not have a composite dataset but a unstructuredgrid directly
     if str(type(vtk_data)).endswith("vtkUnstructuredGrid'>"):
         return_dict={}
@@ -120,7 +128,9 @@ def split_vtkdata(pvdreader):
         vtk_data = dsa.WrapDataObject(vtk_data)
         
         nr_parts = vtk_data.GetNumberOfBlocks()
+        
         return_dict={}
+        #fill return_dict with data for each partition
         for i_part in range(1,nr_parts+1):
             blockdata=vtk_data.GetBlock(i_part-1).GetBlock(0) #for some reason each block contains a single block in itself
             mesh_data=blockdata.GetPoints()

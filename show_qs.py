@@ -13,6 +13,7 @@ import math
 import os
 import sys
 import subprocess
+import getopt
 g_script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(g_script_dir)
 import mesh_data
@@ -25,11 +26,7 @@ g_specimen_thickness=1.8*10**(-3)
 
 
 def select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay):
-
-	#================================================================
-	# addendum: following script captures some of the application
-	# state to faithfully reproduce the visualization during playback
-	#================================================================
+	#the following function was recorded in paraview and selects the lower half of the mesh, in order to create querschliff-pictures
 
 	# get layout
 	layout1 = GetLayout()
@@ -39,10 +36,6 @@ def select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay):
 	# saving layout sizes for layouts
 	# layout/tab size in pixels
 	layout1.SetSize(986, 481)
-
-
-	#-----------------------------------
-	# saving camera placements for views
 
 	
 	# get color transfer function/color map for 'phase'
@@ -109,6 +102,9 @@ def select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay):
 	return extractSelection1,extractSelection1Display
 	
 def make_screenshot(extractSelection1,extractSelection1Display):
+	#the following function was recorded in paraview and creates the crossection-pictures based one the selected lower half
+	
+	
 	#### disable automatic camera reset on 'Show'
 	paraview.simple._DisableFirstRenderCameraReset()
 
@@ -142,7 +138,11 @@ def make_screenshot(extractSelection1,extractSelection1Display):
 
 	# save screenshot
 	SaveScreenshot(os.path.join(g_dirs['post'],'with_edges.png'), renderView1, ImageResolution=[986, 481])
+
 def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict):
+	#iter_phi_qs=integer indicating which cross-section shall be evaluated
+	#partition_node_dict, see read_partitions
+	#partition_vtk_data_dict, see split_vtkdata
 	number_eles=round(mesh_data.g_mesh_data["z"])
 	cut_values=list()
 	wez_values=list()
@@ -153,6 +153,9 @@ def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict
 	return np.array(cut_values),np.array(wez_values)
 
 def get_wez(cut_iter_values,wez_iter_values):
+	#calculates wez and cut widths for each of the 12 layers
+	#cut_iter_values=iterable(here np.array) of cut-widths of all iter_z-values
+	#wez_iter_values=iterable(here np.array) of wez-widths of all iter_z-values
 	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/12
 	highest_uncut_iter_z=0
 	min_schnitt=math.inf
@@ -187,6 +190,10 @@ def get_wez(cut_iter_values,wez_iter_values):
 
 
 def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
+	#calculate wez and cut width of a given layer
+	#layer_numer=number from 1 to 13 indicating layer to be evald
+	#cut_iter_values=iterable(here np.array) of cut-widths of all iter_z-values
+	#wez_iter_values=iterable(here np.array) of wez-widths of all iter_z-values
 	nr_ele_per_layer=round(mesh_data.g_mesh_data["z"]/12)
 	iter_z_high=(layer_number)*nr_ele_per_layer
 	iter_z_low=(layer_number-1)*nr_ele_per_layer
@@ -218,12 +225,12 @@ def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 	return schnitt_acc/weight_acc, wez_acc/weight_acc,min_schnitt,max_schnitt,first_wez_uncut
 
 def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict):
-	#pipeline_object=paraview.servermanager.PvdReader
+	#get wez and cut-width of a given cross_section(integer iter_phi_qs) and a given height(integer iter_z)
 	#partition_node_dict, dict as returned by partitions.read_partitions
 	#partition_vtk_data_dict, dict as returned by partitions.split_vtkdata
 	
 	iter_r_half=int(1+mesh_data.g_mesh_data["r"]/2)
-	iter_r_end=1+mesh_data.g_mesh_data["r"]
+	iter_r_end=1+mesh_data.g_mesh_data["r"]#plus 1 because one more node than elements
 
 	current_phase=2
 	list_of_values=[]
@@ -243,22 +250,34 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 
 		while phase_of_node[current_phase-1]!=1.0:
 			#either the evaporated or the wez intervall has stopped
+			#use while in case both phase changes occur between same nodes
 
 			#calculate width of current element
 			iter_dict["r"]=iter_r-1
 			nodeid_preceeding=mesh_data.get_node_id(iter_dict)
 			coords_of_preceeding_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_preceeding,'coords')
 			radius_preceeding=math.sqrt(coords_of_preceeding_node[0]**2+coords_of_preceeding_node[1]**2)
-			delr=radius-radius_preceeding
+			delr_preceeding=radius-radius_preceeding
+
+			#calculate width of next element
+			iter_dict["r"]=iter_r-+2
+			nodeid_following=mesh_data.get_node_id(iter_dict)
+			coords_of_following_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_preceeding,'coords')
+			radius_following=math.sqrt(coords_of_preceeding_node[0]**2+coords_of_preceeding_node[1]**2)
+			delr_following=radius_following-radius
 
 			#calculate intervall length
 			if iter_r==iter_r_half:
-				radius_start_new=radius+delr*0.5*(phase_of_node[current_phase-1])
+				#if the first iter_r (in the middle) take only half its width, because it extends to both sides
+				radius_start_new=radius+delr_preceeding*0.5*(phase_of_node[current_phase-1])
 			else:
-				radius_start_new=radius+delr*(-0.5+phase_of_node[current_phase-1])
+				if phase_of_node[current_phase-1]<0.5:
+					radius_start_new=radius+delr_preceeding*(-0.5+phase_of_node[current_phase-1])
+				else:
+					radius_start_new=radius+delr_following*(-0.5+phase_of_node[current_phase-1])
 			list_of_values.append(radius_start_new-radius_start)
 			if False:
-				print("delr:"+str(delr)+", factior: "+str(1.0-phase_of_node[current_phase-1]))
+				print("delr:"+str((delr_preceeding,delr_following))+", factior: "+str(1.0-phase_of_node[current_phase-1]))
 				print("phase end of phase "+str(current_phase))
 				print("radius_start_new="+str(radius_start_new)+"radius_start="+str(radius_start))
 			radius_start=radius_start_new
@@ -280,6 +299,11 @@ def test_node_ids():
 	node_iters=mesh_data.get_node_iter(nodeid)
 	print("deducted iters"+str(node_iters))
 def plot_results(post_dir,cut_iter_values,wez_iter_values):
+	#plots the functions cut(z) and wez(z)
+	#once with auto scaling and once with 1:1 aspect ratio
+	#post_dir=directory to place plots as png
+	#cut_iter_values=iterable(here np.array) of cut-widths of all iter_z-values
+	#wez_iter_values=iterable(here np.array) of wez-widths of all iter_z-values
 	plot_file=os.path.join(post_dir,"kerf_and_haz.png")
 	equal_ratio_file=os.path.join(post_dir,"kerf_and_haz_equal.png")
 
@@ -298,6 +322,10 @@ def plot_results(post_dir,cut_iter_values,wez_iter_values):
 
 
 def write_results(filename,cut_iter_values,wez_iter_values):
+	#writes calculated widths of cut and wez to given file
+	#filename=filename to write to
+	#cut_iter_values=iterable(here np.array) of cut-widths of all iter_z-values
+	#wez_iter_values=iterable(here np.array) of wez-widths of all iter_z-values
 	with open(filename,"w") as fil:
 		cut_2d=np.reshape(cut_iter_values, (-1, 1))
 		wez_2d=np.reshape(wez_iter_values, (-1, 1))
@@ -305,6 +333,7 @@ def write_results(filename,cut_iter_values,wez_iter_values):
 		np.savetxt(fil,data,header="cut; wez")
 
 def main():
+	#create all required dirs as empty, if not already present
 	for dir in g_dirs.values():
 		if not os.path.isdir(dir):
 			os.makedirs(dir)
@@ -350,9 +379,37 @@ def main():
 
 	error_calculation.calulate_res_error(wez_ges,delr,ratio_uncut)
 	error_calculation.write_error_file(g_dirs['post'])
-	
+def parse_arguments():
+	given_options=sys.argv[1:]
+	parsed_options=getopt.getopt(given_options,"h",["help"])
+	for arg,value in parsed_options[0]:
+		if arg in ("-h","--help"):
+			print_helptext()
 
+def print_helptext():
+	helptext=(
+		"-------------------PROGRAM-DESCRIPTION----------------\n"
+		"this program postprocesses the lasrcut-calculation by measuring wez and cut-width.\n"
+		"using those values, it calculates the resulting errors.\n"
+		"also pictures of the cross-section will be created.\n"
+		"currently only the last available timestep is evaluated.\n"
+		"\n"
+		"usage:\n"
+		"\tstart post program by executing \"show_qs.py\" in the folder from where you sent the calculation to the taurus.\n"
+		"\n"
+		"requirements:\n"
+		"\tscript needs to be executed via pvpython, see the shebang"
+		"\n"
+		"required files:"
+		"\tpartition_files: \"./Results/I_lasrcut_0001\" and so on\n"
+		"\tparaview_files: \"*.vtu\""
+		"\tMESH-file: \"./MESH_lasrcut\"\n"
+		f"\tthe correct values of wez have to be indicated in {error_calculation.g_expected_result_file}"
+	)
+	print(helptext)
+	exit()
 if __name__ in ["__main__","__vtkconsole__"]:
+	parse_arguments()
 	main()
 	pass
 else:

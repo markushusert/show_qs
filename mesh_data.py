@@ -15,15 +15,15 @@ def read_mesh_data():
             for key in g_mesh_data.keys():
                 arguments=line.split(",")
                 if arguments[1]==key:
-                    if key=="start":
+                    if key=="start":#start needed to find start of phi-variable
                         idx_to_read=3
                         g_mesh_data[key]=float(arguments[idx_to_read])
                     else:
                         idx_to_read=2
                         g_mesh_data[key]=int(arguments[idx_to_read])
                     if key=="p":
-                        g_mesh_data["dp_in"]=float(arguments[5])
-                        g_mesh_data["np_in"]=float(arguments[3])
+                        g_mesh_data["dp_in"]=float(arguments[5])#inner area of phi
+                        g_mesh_data["np_in"]=float(arguments[3])#number of elemnts in inner area
 
 def get_ele_iter(ele_id):
     id_dict={key:None for key in ["r","p","z"]}

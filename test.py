@@ -1,1 +1,0 @@
-print("startet test.py")
