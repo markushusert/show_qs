@@ -260,10 +260,10 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 			delr_preceeding=radius-radius_preceeding
 
 			#calculate width of next element
-			iter_dict["r"]=iter_r-+2
+			iter_dict["r"]=iter_r+1
 			nodeid_following=mesh_data.get_node_id(iter_dict)
-			coords_of_following_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_preceeding,'coords')
-			radius_following=math.sqrt(coords_of_preceeding_node[0]**2+coords_of_preceeding_node[1]**2)
+			coords_of_following_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_following,'coords')
+			radius_following=math.sqrt(coords_of_following_node[0]**2+coords_of_following_node[1]**2)
 			delr_following=radius_following-radius
 
 			#calculate intervall length
@@ -276,9 +276,9 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 				else:
 					radius_start_new=radius+delr_following*(-0.5+phase_of_node[current_phase-1])
 			list_of_values.append(radius_start_new-radius_start)
-			if False:
-				print("delr:"+str((delr_preceeding,delr_following))+", factior: "+str(1.0-phase_of_node[current_phase-1]))
-				print("phase end of phase "+str(current_phase))
+			if True:
+				print("delr:"+str((delr_preceeding,delr_following))+", factor: "+str(-0.5+phase_of_node[current_phase-1]))
+				print("phase end of phase "+str(current_phase)+"at iter_r: "+str(iter_r))
 				print("radius_start_new="+str(radius_start_new)+"radius_start="+str(radius_start))
 			radius_start=radius_start_new
 
@@ -377,8 +377,11 @@ def main():
 		print("delr="+str(delr))
 		print("highest_uncut_iter_z="+str(highest_uncut_iter_z))
 
+	error_laengs,error_quer=error_calculation.calculate_laengs_quer_error(wez_ges)
+	
 	error_calculation.calulate_res_error(wez_ges,delr,ratio_uncut)
 	error_calculation.write_error_file(g_dirs['post'])
+	error_calculation.write_signed_errors(error_laengs,error_quer,g_dirs['post'])
 def parse_arguments():
 	given_options=sys.argv[1:]
 	parsed_options=getopt.getopt(given_options,"h",["help"])
