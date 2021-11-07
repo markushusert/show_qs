@@ -85,6 +85,7 @@ def error_of_given_layers(layer_values,layer_indices=None,signed=False):
     else:
         return avg([rel_deviation(wez,wez_correct)**2 for wez,wez_correct in zip(layer_values,wez_expected)])
 
+
 def calulate_res_error(wez_ges,delr,ratio_uncut):
     #calculate resulting error by comparing given wez_ges,delr and ratio of uncut layers
     #with the expected results

@@ -239,9 +239,9 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 		nodeid=mesh_data.get_node_id(iter_dict)		
 
 		phase_of_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'phase')
-		coords_of_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'coords')
-		radius=math.sqrt(coords_of_node[0]**2+coords_of_node[1]**2)
 		
+		radius=mesh_data.g_r_array[iter_r-1]
+
 		if iter_r==iter_r_half:
 			radius_start=radius
 
@@ -252,20 +252,8 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 			#either the evaporated or the wez intervall has stopped
 			#use while in case both phase changes occur between same nodes
 
-			#calculate width of current element
-			iter_dict["r"]=iter_r-1
-			nodeid_preceeding=mesh_data.get_node_id(iter_dict)
-			coords_of_preceeding_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_preceeding,'coords')
-			radius_preceeding=math.sqrt(coords_of_preceeding_node[0]**2+coords_of_preceeding_node[1]**2)
-			delr_preceeding=radius-radius_preceeding
-			#delr_preceeding=mesh_data.g_delr_array[iter_r-2]
-
-			#calculate width of next element
-			iter_dict["r"]=iter_r+1
-			nodeid_following=mesh_data.get_node_id(iter_dict)
-			coords_of_following_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_following,'coords')
-			radius_following=math.sqrt(coords_of_following_node[0]**2+coords_of_following_node[1]**2)
-			delr_following=radius_following-radius
+			delr_preceeding=mesh_data.g_delr_array[iter_r-2]
+			delr_following=mesh_data.g_delr_array[iter_r-1]
 
 			#calculate intervall length
 			if iter_r==iter_r_half:
@@ -277,7 +265,7 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 				else:
 					radius_start_new=radius+delr_following*(-0.5+phase_of_node[current_phase-1])
 			list_of_values.append(radius_start_new-radius_start)
-			if True:
+			if False:
 				print("delr:"+str((delr_preceeding,delr_following))+", factor: "+str(-0.5+phase_of_node[current_phase-1]))
 				print("phase end of phase "+str(current_phase)+"at iter_r: "+str(iter_r))
 				print("radius_start_new="+str(radius_start_new)+"radius_start="+str(radius_start))
@@ -289,7 +277,39 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 			if current_phase==0:
 				return tuple(list_of_values)
 	
+def global_evaluation(partition_vtk_data_dict,partition_node_dict):
+	delr_array=mesh_data.g_delr_array
+	r_array=mesh_data.g_r_array
+	delphi_array=mesh_data.g_delphi_array
+	delz_array=mesh_data.g_delz_array
 
+	for iter_r in range(mesh_data.g_mesh_data["r"]+1):#+1 because loop over nodes not elements
+		if iter_r == 0:
+			delr=delr_array[iter_r]/2
+			radius=r_array[iter_r]+delr/2
+		elif iter_r == mesh_data.g_mesh_data["r"]:
+			delr=delr_array[iter_r-1]/2
+			radius=r_array[iter_r]-delr/2
+		else:
+			delr=(delr_array[iter_r-1]+delr_array[iter_r])/2
+			radius=r_array[iter_r]
+		for iter_z in range(mesh_data.g_mesh_data["z"]+1):
+			if iter_z == 0:
+				delz=delz_array[iter_z]/2	
+			elif iter_z == mesh_data.g_mesh_data["z"]:
+				delz=delz_array[iter_z-1]/2
+			else:
+				delz=(delz_array[iter_z-1]+delz_array[iter_z])/2
+			for iter_phi in range(mesh_data.g_mesh_data["p"]):
+				if iter_phi in [0,mesh_data.g_mesh_data["p"]]:
+					delphi=(delphi_array[0]+delphi_array[mesh_data.g_mesh_data["p"]-1])/2
+				else:
+					delphi=(delphi_array[iter_phi]+delphi_array[iter_phi-1])/2
+				
+				volume_of_node=radius*delr*delz*delphi
+				nodeid=mesh_data.get_node_id({"r":iter_r+1,"p":iter_phi+1,"z":iter_z+1})
+				phase_of_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'phase')
+				energy_of_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'energie')
 
 def test_node_ids():
 	
@@ -366,6 +386,9 @@ def main():
 
 	mesh_data.deduct_element_length(partition_vtk_data_dict,partition_node_dict)
 
+	global_evaluation(partition_vtk_data_dict,partition_node_dict)
+
+	#evaluation of a qs
 	cut_iter_values,wez_iter_values=get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
 	write_results(os.path.join(g_dirs['post'],"wez-values.txt"),cut_iter_values,wez_iter_values)
 	plot_results(g_dirs['post'],cut_iter_values,wez_iter_values)

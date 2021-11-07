@@ -4,6 +4,7 @@ from paraview.vtk.numpy_interface import dataset_adapter as dsa
 from paraview.vtk.numpy_interface import algorithms as algs
 from paraview import servermanager as sm, vtk
 from paraview.vtk.numpy_interface import dataset_adapter as dsa
+import mesh_data
 from collections import defaultdict
 import os
 import inspect
@@ -95,7 +96,8 @@ def get_array_value_of_global_id(node_partition,data_split_into_partitions,globa
         print("partitions and local nodes: "+str(local_adresses_of_global_node))
         print("detected values: "+str(set_of_array_values))
     elif len(set_of_array_values)==0:
-        print("ERROR no data found for node "+str(global_id))
+        print("ERROR no data found for node "+str(global_id)+" iters:"+str(mesh_data.get_node_iter(global_id)))
+        raise e
     else:
         for value in set_of_array_values:
             return value

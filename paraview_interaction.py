@@ -30,7 +30,7 @@ def read_data(data_dir):
 	data_path=os.path.join(data_dir,'pview_out_all.pvd')
 	
 	pview_out_allpvd = PVDReader(registrationName='pview_out_all.pvd', FileName=data_path)
-	pview_out_allpvd.PointArrays = ['temperatur',  'maxtemp', 'phase',  'evaporation']
+	pview_out_allpvd.PointArrays = ['temperatur',  'maxtemp', 'phase',  'evaporation', 'energie']
 
 	# get active view
 	renderView1 = GetActiveViewOrCreate('RenderView')
