@@ -258,6 +258,7 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 			coords_of_preceeding_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_preceeding,'coords')
 			radius_preceeding=math.sqrt(coords_of_preceeding_node[0]**2+coords_of_preceeding_node[1]**2)
 			delr_preceeding=radius-radius_preceeding
+			#delr_preceeding=mesh_data.g_delr_array[iter_r-2]
 
 			#calculate width of next element
 			iter_dict["r"]=iter_r+1
@@ -362,6 +363,8 @@ def main():
 
 	partition_node_dict=partitions.read_partitions(g_dirs['res'])
 	partition_vtk_data_dict=partitions.split_vtkdata(pview_out_allpvd)
+
+	mesh_data.deduct_element_length(partition_vtk_data_dict,partition_node_dict)
 
 	cut_iter_values,wez_iter_values=get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
 	write_results(os.path.join(g_dirs['post'],"wez-values.txt"),cut_iter_values,wez_iter_values)

@@ -2,6 +2,9 @@ import sys
 import os
 import math
 import glob
+import numpy as np
+import partitions
+
 g_input_dir=os.getcwd()
 g_mesh_file="MESH_lasrcut"
 
@@ -24,6 +27,59 @@ def read_mesh_data():
                     if key=="p":
                         g_mesh_data["dp_in"]=float(arguments[5])#inner area of phi
                         g_mesh_data["np_in"]=float(arguments[3])#number of elemnts in inner area
+
+def deduct_element_length(partition_vtk_data_dict,partition_node_dict):
+    global g_delr_array, g_delphi_array, g_delz_array
+    g_delr_array=np.zeros(g_mesh_data["r"]-1)
+    g_delphi_array=np.zeros(g_mesh_data["p"]-1)
+    g_delz_array=np.zeros(g_mesh_data["z"]-1)
+    #deduct delr_array
+    iter_dict0={"r":1,"p":1,"z":1}
+    iter_dict=iter_dict0
+    for iter_r in range(g_delr_array.shape[0]):
+        nodeid_pre=get_node_id(iter_dict)
+        iter_dict["r"]+=1
+        nodeid=get_node_id(iter_dict)
+
+        coords_preceeding=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_pre,'coords')
+        coords=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'coords')
+        
+        radius_preceeding=math.sqrt(coords_preceeding[0]**2+coords_preceeding[1]**2)
+        radius=math.sqrt(coords[0]**2+coords[1]**2)
+
+        g_delr_array[iter_r]=radius-radius_preceeding
+
+    for iter_phi in range(g_delphi_array.shape[0]):
+        nodeid_pre=get_node_id(iter_dict)
+        iter_dict["p"]+=1
+        nodeid=get_node_id(iter_dict)
+
+        coords_preceeding=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_pre,'coords')
+        coords=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'coords')
+        
+        phi_preceeding=math.atan(coords_preceeding[1]/coords_preceeding[0])
+        phi=math.atan(coords[1]/coords[0])
+
+        if phi<phi_preceeding:
+            #periodicity of atan
+            g_delphi_array[iter_phi]=phi-phi_preceeding+math.pi
+        else:
+            g_delphi_array[iter_phi]=phi-phi_preceeding
+    
+    for iter_z in range(g_delz_array.shape[0]):
+        nodeid_pre=get_node_id(iter_dict)
+        iter_dict["z"]+=1
+        nodeid=get_node_id(iter_dict)
+
+        coords_preceeding=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_pre,'coords')
+        coords=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'coords')
+        
+        z_preceeding=coords_preceeding[2]
+        z=coords[2]
+
+        #periodicity of atan
+        g_delz_array[iter_z]=z-z_preceeding
+        
 
 def get_ele_iter(ele_id):
     id_dict={key:None for key in ["r","p","z"]}

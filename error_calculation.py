@@ -50,6 +50,7 @@ def write_error_file(post_dir):
         fil.write("error_delr="+str(g_error_delr)+"\n")
         fil.write("error_schicht="+str(g_error_schicht)+"\n")
         fil.write("error_ges="+str(g_error_ges)+"\n")
+        
 def write_signed_errors(error_laengs,error_quer,post_dir):
     error_file=os.path.join(post_dir,g_signed_error_file_name)
     with open(error_file,"w") as fil:
