@@ -6,11 +6,10 @@ import copy
 g_script_dir = os.path.dirname(os.path.realpath(__file__))
 g_expected_result_file=os.path.join(g_script_dir,"expected_results.txt")
 
-
 #in the same dir as the post-scripts is supposed to lie a file indicating the expected results of wez and cut
 with open(g_expected_result_file,"r") as fil:
     global g_qs_to_eval,g_expected_values_for_qs
-    lines=fil.readlines()
+    lines=[line for line in fil.readlines() if not line.strip().startswith("#")]
     qs_to_eval_string=lines[0].split(":")[-1]
     #only whole degrees allowed 
     g_qs_to_eval=[int(string) for string in qs_to_eval_string.split(",")]
