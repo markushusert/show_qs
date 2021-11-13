@@ -14,6 +14,7 @@ import os
 import sys
 import subprocess
 import getopt
+import output
 import evaluate
 g_script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(g_script_dir)
@@ -23,7 +24,7 @@ import paraview_interaction
 import partitions
 g_debugflag=False
 g_dirs={"res":"Results","post":"Post"}
-g_specimen_thickness=1.8*10**(-3)
+
 
 
 def select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay):
@@ -151,40 +152,69 @@ def test_node_ids():
 	print("deducted-node: "+str(nodeid))
 	node_iters=mesh_data.get_node_iter(nodeid)
 	print("deducted iters"+str(node_iters))
-def plot_results(post_dir,cut_iter_values,wez_iter_values):
-	#plots the functions cut(z) and wez(z)
-	#once with auto scaling and once with 1:1 aspect ratio
-	#post_dir=directory to place plots as png
-	#cut_iter_values=iterable(here np.array) of cut-widths of all iter_z-values
-	#wez_iter_values=iterable(here np.array) of wez-widths of all iter_z-values
-	plot_file=os.path.join(post_dir,"kerf_and_haz.png")
-	equal_ratio_file=os.path.join(post_dir,"kerf_and_haz_equal.png")
-
-	y_values=np.linspace(0,g_specimen_thickness,mesh_data.g_mesh_data["z"]+1)
-	fig, ax = plt.subplots()
-	linewidth=0.5
-	handle_cut,=ax.plot(cut_iter_values,y_values,color="red",label="kerf",linewidth=linewidth)
-	handle_wez,=ax.plot(wez_iter_values,y_values,color="blue",label="HAZ",linewidth=linewidth)
-	plt.legend(handles=[handle_cut,handle_wez])
-
-	ax.set_aspect('auto')
-	fig.savefig(plot_file)
-
-	ax.set_aspect('equal')
-	fig.savefig(equal_ratio_file)
 
 
-def write_results(filename,cut_iter_values,wez_iter_values):
-	#writes calculated widths of cut and wez to given file
-	#filename=filename to write to
-	#cut_iter_values=iterable(here np.array) of cut-widths of all iter_z-values
-	#wez_iter_values=iterable(here np.array) of wez-widths of all iter_z-values
-	with open(filename,"w") as fil:
-		cut_2d=np.reshape(cut_iter_values, (-1, 1))
-		wez_2d=np.reshape(wez_iter_values, (-1, 1))
-		data=np.concatenate((cut_2d,wez_2d),axis=1)
-		np.savetxt(fil,data,header="cut; wez")
+def setup_evaluation(pview_out_allpvd):
+	#sets up the evaluation by creating dictionaries to easily acces paraview-data
+	#and reading the problem-mesh
+	mesh_data.read_mesh_data()
 
+	partition_node_dict=partitions.read_partitions(g_dirs['res'])
+	partition_vtk_data_dict=partitions.split_vtkdata(pview_out_allpvd)
+
+	mesh_data.deduct_element_length(partition_vtk_data_dict,partition_node_dict)
+
+	return partition_vtk_data_dict,partition_node_dict
+
+def global_evaluation(partition_vtk_data_dict,partition_node_dict):
+	#carry out the global evaluation
+	energy_per_mat,volume_per_mat,energy_per_phase,volume_per_phase=evaluate.global_evaluation(partition_vtk_data_dict,partition_node_dict)
+	highest_uncut_iter_z=evaluate.get_highest_uncut_iter_z(partition_vtk_data_dict,partition_node_dict)
+	uncut_ratio=highest_uncut_iter_z/(mesh_data.g_mesh_data["z"]+1)
+	output.write_global_stats(g_dirs['post'],energy_per_mat,volume_per_mat,energy_per_phase,volume_per_phase,uncut_ratio)
+	return uncut_ratio
+
+def evaluate_qs(qs_to_eval,partition_node_dict,partition_vtk_data_dict,error_schicht):
+	iter_phi_qs=mesh_data.deduct_iter_phi_to_eval(1/180*qs_to_eval)
+	if g_debugflag:
+		print("iter_phi_of_qs="+str(iter_phi_qs))
+
+	#evaluation of a qs
+	#outside measuring cut and wez
+	cut_iter_values,wez_iter_values=evaluate.get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
+	output.write_results(os.path.join(g_dirs['post'],f"wez-values{qs_to_eval}.txt"),cut_iter_values,wez_iter_values)
+	output.plot_results(g_dirs['post'],qs_to_eval,cut_iter_values,wez_iter_values)
+
+	#inside measuring cut and wez
+	cut_iter_inside,wez_iter_inside=evaluate.get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict,-1)
+	output.write_results(os.path.join(g_dirs['post'],f"wez-values-inside{qs_to_eval}.txt"),cut_iter_inside,wez_iter_inside)
+
+	#later evaluate highest_uncut_iter_z globally and pass to evaluate_qs-function
+	schnitt_layer,wez_layer,delr,highest_uncut_iter_z=evaluate.get_wez(cut_iter_values,wez_iter_values)
+	output.write_results(os.path.join(g_dirs['post'],f"wez-layer{qs_to_eval}.txt"),schnitt_layer,wez_layer)
+
+	#later evaluate highest_uncut_iter_z globally and pass to evaluate_qs-function
+	schnitt_layer_inside,wez_inside_layer,delr_inside,highest_uncut_iter_z=evaluate.get_wez(cut_iter_values,wez_iter_values)
+	output.write_results(os.path.join(g_dirs['post'],f"wez-layer-inside{qs_to_eval}.txt"),schnitt_layer_inside,wez_inside_layer)
+
+	stats=evaluate.qs_statistics(qs_to_eval,wez_layer,cut_iter_values,cut_iter_inside,delr,delr_inside)
+	qs_stats_file=os.path.join(g_dirs['post'],f"qs_stats{qs_to_eval}.txt")
+	output.write_keyword_output(qs_stats_file,stats)
+	if g_debugflag:
+		print("schnitt="+str(schnitt_layer))
+		print("wez="+str(wez_layer))
+		print("delr="+str(delr))
+
+	#only do error calculation if results exist
+	if error_calculation.g_expected_values_for_qs[qs_to_eval]["wez"]:
+		error_laengs,error_quer=error_calculation.calculate_laengs_quer_error(wez_layer,qs_to_eval)
+		#combination error_wez/delr verschiedener qs durch mittelung über qs
+		error_wez,error_delr,error_schicht,error_ges=error_calculation.calculate_res_error(wez_layer,delr,qs_to_eval,error_schicht)
+		output.write_error_file(g_dirs['post'],qs_to_eval,error_wez,error_delr,None,error_ges)
+		output.write_signed_errors(g_dirs['post'],qs_to_eval,error_laengs,error_quer)
+		return error_wez,error_delr
+	else:
+		return None
 def main():
 	#create all required dirs as empty, if not already present
 	for dir in g_dirs.values():
@@ -205,42 +235,28 @@ def main():
 	renderView1.Update()
 
 	make_screenshot(extractSelection1,extractSelection1Display)
-	mesh_data.read_mesh_data()
-
-	#test_node_ids()
 	
-	iter_phi_qs=mesh_data.deduct_iter_phi_to_eval(error_calculation.g_qs_to_eval[0])
-	if g_debugflag:
-		print("iter_phi_of_qs="+str(iter_phi_qs))
-
-	partition_node_dict=partitions.read_partitions(g_dirs['res'])
-	partition_vtk_data_dict=partitions.split_vtkdata(pview_out_allpvd)
-
-	mesh_data.deduct_element_length(partition_vtk_data_dict,partition_node_dict)
-
-	energy_per_mat,volume_per_mat,energy_per_phase,volume_per_phase=evaluate.global_evaluation(partition_vtk_data_dict,partition_node_dict)
-	error_calculation.write_global_stats(g_dirs['post'],energy_per_mat,volume_per_mat,energy_per_phase,volume_per_phase)
-
-	#evaluation of a qs
-	cut_iter_values,wez_iter_values=evaluate.get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
-	write_results(os.path.join(g_dirs['post'],"wez-values.txt"),cut_iter_values,wez_iter_values)
-	plot_results(g_dirs['post'],cut_iter_values,wez_iter_values)
-
-	schnitt_ges,wez_ges,delr,highest_uncut_iter_z=evaluate.get_wez(cut_iter_values,wez_iter_values)
-	write_results(os.path.join(g_dirs['post'],"wez-layer.txt"),schnitt_ges,wez_ges)
-	ratio_uncut=highest_uncut_iter_z/(mesh_data.g_mesh_data["z"]+1)
-	#print(get_wez_of_iter_z(24,iter_phi_qs,partition_node_dict,partition_vtk_data_dict))
-	if g_debugflag:
-		print("schnitt="+str(schnitt_ges))
-		print("wez="+str(wez_ges))
-		print("delr="+str(delr))
-		print("highest_uncut_iter_z="+str(highest_uncut_iter_z))
-
-	error_laengs,error_quer=error_calculation.calculate_laengs_quer_error(wez_ges)
+	partition_vtk_data_dict,partition_node_dict=setup_evaluation(pview_out_allpvd)
 	
-	error_wez,error_delr,error_schicht,error_ges=error_calculation.calulate_res_error(wez_ges,delr,ratio_uncut)
-	error_calculation.write_error_file(g_dirs['post'],error_wez,error_delr,error_schicht,error_ges)
-	error_calculation.write_signed_errors(error_laengs,error_quer,g_dirs['post'])
+	uncut_ratio=global_evaluation(partition_vtk_data_dict,partition_node_dict)
+	error_schicht=error_calculation.calc_error_schicht(uncut_ratio)
+
+	wez_errors=[]
+	delr_errors=[]
+	for qs_to_eval in error_calculation.g_qs_to_eval:
+		returntuple=evaluate_qs(qs_to_eval,partition_node_dict,partition_vtk_data_dict,error_schicht)
+		if returntuple:
+			error_wez,error_delr=returntuple
+			wez_errors.append(error_wez)
+			delr_errors.append(error_delr)
+	
+	res_error_wez=error_calculation.avg(wez_errors)
+	res_error_delr=error_calculation.avg(delr_errors)
+	res_error_of_calc=error_calculation.combine_errors(res_error_wez,res_error_delr,error_schicht)
+	print(f"error={res_error_of_calc}")
+	output.write_error_file(g_dirs['post'],"",res_error_wez,res_error_delr,error_schicht,res_error_of_calc)
+	output.combine_output_files(g_dirs['post'])
+
 def parse_arguments():
 	given_options=sys.argv[1:]
 	parsed_options=getopt.getopt(given_options,"h",["help"])

@@ -113,7 +113,7 @@ def get_node_iter(node_id):
     return id_dict
 
 def deduct_iter_phi_to_eval(angle_of_qs):
-    #angle_of_qs=angle in radians
+    #angle_of_qs=multiples of pi
     #angle=start+dp_in*iter/np_in
     #->iter=(angle-start)*np_in/dp_in
     return int((angle_of_qs-g_mesh_data["start"])*g_mesh_data["np_in"]/g_mesh_data["dp_in"])

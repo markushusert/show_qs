@@ -1,19 +1,25 @@
+from os import error
 import mesh_data
 import math
 import numpy as np
 import partitions
+import error_calculation
+import output
+import scipy
+from scipy import stats
 
 g_debugflag=False
 g_main_file="I_lasrcut"
-def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict):
+def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction=1):
 	#iter_phi_qs=integer indicating which cross-section shall be evaluated
 	#partition_node_dict, see read_partitions
 	#partition_vtk_data_dict, see split_vtkdata
+	#direction can be 1 for going outward from the center, or -1 for goinig inward
 	number_eles=round(mesh_data.g_mesh_data["z"])
 	cut_values=list()
 	wez_values=list()
 	for iter_z in range(1,number_eles+1+1):#example: 36 elements->37 nodes->iter_z goes from 1 to 37
-		cut,wez=get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
+		cut,wez=get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction)
 		cut_values.append(cut)
 		wez_values.append(wez)
 	return np.array(cut_values),np.array(wez_values)
@@ -26,8 +32,8 @@ def get_wez(cut_iter_values,wez_iter_values):
 	highest_uncut_iter_z=0
 	min_schnitt=math.inf
 	max_schnitt=-math.inf
-	wez_ges=[None for i in range(12)]
-	schnitt_ges=[None for i in range(12)]
+	wez_layer=[None for i in range(12)]
+	schnitt_layer=[None for i in range(12)]
 
 	for iter_layer in range(1,13):
 		#eval layer
@@ -36,8 +42,8 @@ def get_wez(cut_iter_values,wez_iter_values):
 		#reduce evaluations
 		min_schnitt=min([min_schnitt,min_schnitt_r])
 		max_schnitt=max([max_schnitt,max_schnitt_r])
-		wez_ges[iter_layer-1]=wezmean
-		schnitt_ges[iter_layer-1]=schnittmean
+		wez_layer[iter_layer-1]=wezmean
+		schnitt_layer[iter_layer-1]=schnittmean
 		if first_uncut:
 			highest_uncut_iter_z=first_uncut
 
@@ -52,7 +58,7 @@ def get_wez(cut_iter_values,wez_iter_values):
 			if schnitt==0.0 and highest_uncut_iter_z!=0:
 				highest_uncut_iter_z=iter_z
 			
-	return schnitt_ges,wez_ges,max_schnitt-min_schnitt,highest_uncut_iter_z
+	return schnitt_layer,wez_layer,max_schnitt-min_schnitt,highest_uncut_iter_z
 
 
 def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
@@ -90,20 +96,25 @@ def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 			print("iter_z: "+str(iter_z)+", in layer: "+str(layer_number)+" has wez: "+str(delr_wez)+" and cut: "+str(delr_schnitt))
 	return schnitt_acc/weight_acc, wez_acc/weight_acc,min_schnitt,max_schnitt,first_wez_uncut
 
-def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict):
+def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction):
 	#get wez and cut-width of a given cross_section(integer iter_phi_qs) and a given height(integer iter_z)
 	#partition_node_dict, dict as returned by partitions.read_partitions
 	#partition_vtk_data_dict, dict as returned by partitions.split_vtkdata
-	
+	#direction on of -1,or 1 to go either inwards or outwards
+	if direction not in [1,-1]:
+		raise Exception(f"direction was {direction}, must be one of {[1,-1]}")
 	iter_r_half=int(1+mesh_data.g_mesh_data["r"]/2)
 	iter_r_end=1+mesh_data.g_mesh_data["r"]#plus 1 because one more node than elements
 
 	current_phase=2
 	list_of_values=[]
-	for iter_r in range(iter_r_half,iter_r_end+1):
+	if direction==1:
+		limr=iter_r_end+1
+	else:
+		limr=0
+	for iter_r in range(iter_r_half,limr,direction):
 		iter_dict={"r":iter_r,"p":iter_phi_qs,"z":iter_z}
 		nodeid=mesh_data.get_node_id(iter_dict)		
-
 		phase_of_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'phase')
 		
 		radius=mesh_data.g_r_array[iter_r-1]
@@ -130,7 +141,7 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 					radius_start_new=radius+delr_preceeding*(-0.5+phase_of_node[current_phase-1])
 				else:
 					radius_start_new=radius+delr_following*(-0.5+phase_of_node[current_phase-1])
-			list_of_values.append(radius_start_new-radius_start)
+			list_of_values.append(direction*(radius_start_new-radius_start))
 			if False:
 				print("delr:"+str((delr_preceeding,delr_following))+", factor: "+str(-0.5+phase_of_node[current_phase-1]))
 				print("phase end of phase "+str(current_phase)+"at iter_r: "+str(iter_r))
@@ -142,7 +153,42 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 			current_phase=current_phase-1
 			if current_phase==0:
 				return tuple(list_of_values)
+def calc_slope_of_wez(wez_layers,idx=None):
+	if idx is None:
+		idx=[i for i in range(len(wez_layers))]
+	z_vals=[(i+0.5)/12*output.g_specimen_thickness for i in idx]
+	res=scipy.stats.linregress(wez_layers,z_vals)
+	slope=res[0]
+	return slope
+def qs_statistics(qs,wez_layer,cut_iter_values,cut_iter_inside,delr,delr_inside):
+	#qs=integer of qs to eval
+	#wez_layer=list of 12 wez-values
+	#cut_iter_values=np.array of cut-values for each iter-z on the outside
+	#cut_iter_inside=np.array of cut-values for each iter-z on the outside
+	#delr difference in cut-width upside vs downside on the outside
+	#delr_inside same but on the inside
 
+	stats={}
+	stats["spaltbreite_oben"]=cut_iter_values[-1]+cut_iter_inside[-1]
+	stats["spaltbreite_unten"]=cut_iter_values[0]+cut_iter_inside[0]
+	stats["mean_wez"]=error_calculation.avg(wez_layer)
+	stats["slope"]=calc_slope_of_wez(wez_layer)
+	laengs_quer_idx_of_qs=error_calculation.laengs_quer_idx_dict.get(qs)
+	
+	if laengs_quer_idx_of_qs:
+		laengs_idx=laengs_quer_idx_of_qs["laengs"]
+		quer_idx=laengs_quer_idx_of_qs["quer"]
+		laengs_wez=[wez_layer[i] for i in laengs_idx]
+		quer_wez=[wez_layer[i] for i in quer_idx]
+		stats["mean_laengs"]=error_calculation.avg(laengs_wez)
+		stats["mean_quer"]=error_calculation.avg(quer_wez)
+		stats["max_laengs_min_quer"]=max(laengs_wez)/min([i for i in quer_wez if i>0])
+		stats["max_quer_min_laengs"]=max(quer_wez)/min([i for i in laengs_wez if i>0])
+		stats["slope_laengs"]=calc_slope_of_wez(laengs_wez,quer_idx)
+		stats["slope_quer"]=calc_slope_of_wez(quer_wez,quer_idx)
+	
+	stats={key+str(qs):val for key,val in stats.items()}
+	return stats
 def get_used_material_file(): 
     with open(g_main_file,"r") as fil:
         lines=fil.readlines()
@@ -160,6 +206,24 @@ def get_fibre_volume_fraction():
         if "VF" in line:
             value=line.split(" ")[-1].strip()
     return float(value)
+def get_highest_uncut_iter_z(partition_vtk_data_dict,partition_node_dict):
+	iter_r=int(mesh_data.g_mesh_data["r"]/2)#nodes in the middle
+	iter_phi_0_deg=mesh_data.deduct_iter_phi_to_eval(0.0)
+	iter_phi_90_deg=mesh_data.deduct_iter_phi_to_eval(1/2.0)
+	
+	for iter_z in range(mesh_data.g_mesh_data["z"],-1,-1):#loop from top to bottom
+		iter_z_is_cut=True
+		for iter_phi in range(iter_phi_0_deg,iter_phi_90_deg+1):#only loop over inner phis
+			nodeid=mesh_data.get_node_id({"r":iter_r+1,"z":iter_z+1,"p":iter_phi+1})
+			phase_of_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'phase')
+			if any(phase!=1.0 for phase in phase_of_node):
+				iter_z_is_cut=False
+				break
+		if not iter_z_is_cut:
+			return iter_z+1
+	#no uncut iter_z was found
+	return None
+
 def dummy():
     return float("0.1")
 def global_evaluation(partition_vtk_data_dict,partition_node_dict):
