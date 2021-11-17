@@ -17,11 +17,11 @@ with open(g_expected_result_file,"r") as fil:
     g_expected_values_for_qs={}
     for qs in g_qs_to_eval:
         g_expected_values_for_qs[qs]={name:None for name in ["wez","delr"]}
-        given_results=False
+        given_wez_fac=False
         for line in lines:
             if line.startswith(f"wez{qs}:"):
                 valuestring=line.split(":",1)[1]
-                given_results=True
+                
                 try:
                     wez_correct=[float(valuestring.split(",")[i]) for i in range(12)]
                 except IndexError:
@@ -30,14 +30,15 @@ with open(g_expected_result_file,"r") as fil:
             elif line.startswith(f"wez_fac{qs}:"):
                 valuestring=line.split(":",1)[1]
                 wez_fac=float(eval(valuestring))
+                given_wez_fac=True
             elif line.startswith(f"delr{qs}:"):
                 valuestring=line.split(":",1)[1]
                 delr=float(eval(valuestring))
-        if given_results:
+                g_expected_values_for_qs[qs]["delr"]=delr
+        if given_wez_fac:
             wez_correct=[value*wez_fac for value in wez_correct]
             g_expected_values_for_qs[qs]["wez"]=copy.copy(wez_correct)
-            g_expected_values_for_qs[qs]["delr"]=delr
-
+            
 def rel_deviation(a,b):
     if(a>b):
         return (a-b)/a
@@ -93,8 +94,12 @@ def calculate_res_error(wez_layer,delr,qs_to_eval,error_schicht):
     global g_expected_values_for_qs
     #
     error_wez=error_of_given_layers(wez_layer,qs_to_eval=qs_to_eval)
-    error_delr=rel_deviation(delr,g_expected_values_for_qs[qs_to_eval]["delr"])*abs(rel_deviation(delr,g_expected_values_for_qs[0]["delr"]))
-    
+    expected_delr=g_expected_values_for_qs[qs_to_eval]["delr"]
+    if expected_delr:
+        error_delr=rel_deviation(delr,g_expected_values_for_qs[qs_to_eval]["delr"])*abs(rel_deviation(delr,g_expected_values_for_qs[0]["delr"]))
+    else:
+        error_delr=0.0
+        
     error_ges=combine_errors(error_wez,error_delr,error_schicht)
     print(f"error{qs_to_eval}={error_ges}")
     return error_wez,error_delr,error_schicht,error_ges

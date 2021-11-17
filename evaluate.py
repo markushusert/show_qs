@@ -10,6 +10,7 @@ from scipy import stats
 
 g_debugflag=False
 g_main_file="I_lasrcut"
+g_nr_layers=12
 def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction=1):
 	#iter_phi_qs=integer indicating which cross-section shall be evaluated
 	#partition_node_dict, see read_partitions
@@ -24,18 +25,20 @@ def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict
 		wez_values.append(wez)
 	return np.array(cut_values),np.array(wez_values)
 
+
 def get_wez(cut_iter_values,wez_iter_values):
-	#calculates wez and cut widths for each of the 12 layers
+	#calculates wez and cut widths for each of the g_nr_layers layers
 	#cut_iter_values=iterable(here np.array) of cut-widths of all iter_z-values
 	#wez_iter_values=iterable(here np.array) of wez-widths of all iter_z-values
-	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/12
+	global g_nr_layers
+	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/g_nr_layers
 	highest_uncut_iter_z=0
 	min_schnitt=math.inf
 	max_schnitt=-math.inf
-	wez_layer=[None for i in range(12)]
-	schnitt_layer=[None for i in range(12)]
+	wez_layer=[None for i in range(g_nr_layers)]
+	schnitt_layer=[None for i in range(g_nr_layers)]
 
-	for iter_layer in range(1,13):
+	for iter_layer in range(g_nr_layers):
 		#eval layer
 		schnittmean,wezmean,min_schnitt_r,max_schnitt_r,first_uncut=get_wez_of_layer(iter_layer,cut_iter_values,wez_iter_values)
 		
@@ -48,7 +51,7 @@ def get_wez(cut_iter_values,wez_iter_values):
 			highest_uncut_iter_z=first_uncut
 
 		continue
-		nr_ele_per_layer=mesh_data.g_mesh_data["z"]/12
+		nr_ele_per_layer=mesh_data.g_mesh_data["z"]/g_nr_layers
 		iter_z_start=1+(iter_layer)*nr_ele_per_layer
 		iter_z_end=1+(iter_layer-1)*nr_ele_per_layer
 		for iter_z in range(iter_z_start,iter_z_end-1,-1):
@@ -60,15 +63,18 @@ def get_wez(cut_iter_values,wez_iter_values):
 			
 	return schnitt_layer,wez_layer,max_schnitt-min_schnitt,highest_uncut_iter_z
 
+def get_iter_lims_of_layer(layer_number):
+	nr_ele_per_layer=round(mesh_data.g_mesh_data["z"]/g_nr_layers)
+	iter_z_high=(layer_number+1)*nr_ele_per_layer
+	iter_z_low=(layer_number)*nr_ele_per_layer
+	return iter_z_low,iter_z_high+1
 
 def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 	#calculate wez and cut width of a given layer
-	#layer_numer=number from 1 to 13 indicating layer to be evald
+	#layer_numer=number from 0 to 11 indicating layer to be evald
 	#cut_iter_values=iterable(here np.array) of cut-widths of all iter_z-values
 	#wez_iter_values=iterable(here np.array) of wez-widths of all iter_z-values
-	nr_ele_per_layer=round(mesh_data.g_mesh_data["z"]/12)
-	iter_z_high=(layer_number)*nr_ele_per_layer
-	iter_z_low=(layer_number-1)*nr_ele_per_layer
+	iter_z_low,iter_z_high=get_iter_lims_of_layer(layer_number)
 
 	first_wez_uncut=None
 	weight_acc=0.0
@@ -76,7 +82,7 @@ def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 	wez_acc=0.0
 	min_schnitt=math.inf
 	max_schnitt=-math.inf
-	for iter_z in range(iter_z_low,iter_z_high+1):
+	for iter_z in range(iter_z_low,iter_z_high):
 		if iter_z in [iter_z_high,iter_z_low]:
 			weight=0.5
 		else:
@@ -154,15 +160,17 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 			if current_phase==0:
 				return tuple(list_of_values)
 def calc_slope_of_wez(wez_layers,idx=None):
+
 	if idx is None:
 		idx=[i for i in range(len(wez_layers))]
-	z_vals=[(i+0.5)/12*output.g_specimen_thickness for i in idx]
+	z_vals=[(i+0.5)/g_nr_layers*output.g_specimen_thickness for i in idx]
 	res=scipy.stats.linregress(wez_layers,z_vals)
 	slope=res[0]
 	return slope
-def qs_statistics(qs,wez_layer,cut_iter_values,cut_iter_inside,delr,delr_inside):
+def qs_statistics(qs,wez_layer,wez_inside_layer,cut_iter_values,cut_iter_inside,delr,delr_inside):
 	#qs=integer of qs to eval
-	#wez_layer=list of 12 wez-values
+	#wez_layer=list of g_nr_layers wez-values from bottom to top
+	#wez_inside_layer= list of g_nr_layers wez-values on the inside
 	#cut_iter_values=np.array of cut-values for each iter-z on the outside
 	#cut_iter_inside=np.array of cut-values for each iter-z on the outside
 	#delr difference in cut-width upside vs downside on the outside
@@ -172,7 +180,12 @@ def qs_statistics(qs,wez_layer,cut_iter_values,cut_iter_inside,delr,delr_inside)
 	stats["spaltbreite_oben"]=cut_iter_values[-1]+cut_iter_inside[-1]
 	stats["spaltbreite_unten"]=cut_iter_values[0]+cut_iter_inside[0]
 	stats["mean_wez"]=error_calculation.avg(wez_layer)
-	stats["slope"]=calc_slope_of_wez(wez_layer)
+	mean_wez_inside=error_calculation.avg(wez_inside_layer)
+	stats["wez_ratio_out_in"]=stats["mean_wez"]/mean_wez_inside
+	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/g_nr_layers
+	layers_wich_are_totally_cut=[i for i in range(g_nr_layers) if all(cut_iter_values[j] for j in range(*get_iter_lims_of_layer(i)))]
+	wez_of_totally_cut_layers=[wez_layer[i] for i in layers_wich_are_totally_cut]
+	stats["slope"]=calc_slope_of_wez(wez_of_totally_cut_layers,layers_wich_are_totally_cut)
 	laengs_quer_idx_of_qs=error_calculation.laengs_quer_idx_dict.get(qs)
 	
 	if laengs_quer_idx_of_qs:
@@ -180,12 +193,16 @@ def qs_statistics(qs,wez_layer,cut_iter_values,cut_iter_inside,delr,delr_inside)
 		quer_idx=laengs_quer_idx_of_qs["quer"]
 		laengs_wez=[wez_layer[i] for i in laengs_idx]
 		quer_wez=[wez_layer[i] for i in quer_idx]
+		laengs_idx_cut=[i for i in layers_wich_are_totally_cut if i in laengs_idx]
+		quer_idx_cut=[i for i in layers_wich_are_totally_cut if i in quer_idx]
+		laengs_wez_cut=[wez_layer[i] for i in laengs_idx_cut]
+		quer_wez_cut=[wez_layer[i] for i in quer_idx_cut]
 		stats["mean_laengs"]=error_calculation.avg(laengs_wez)
 		stats["mean_quer"]=error_calculation.avg(quer_wez)
 		stats["max_laengs_min_quer"]=max(laengs_wez)/min([i for i in quer_wez if i>0])
 		stats["max_quer_min_laengs"]=max(quer_wez)/min([i for i in laengs_wez if i>0])
-		stats["slope_laengs"]=calc_slope_of_wez(laengs_wez,quer_idx)
-		stats["slope_quer"]=calc_slope_of_wez(quer_wez,quer_idx)
+		stats["slope_laengs"]=calc_slope_of_wez(laengs_wez_cut,laengs_idx_cut)
+		stats["slope_quer"]=calc_slope_of_wez(quer_wez_cut,quer_idx_cut)
 	
 	stats={key+str(qs):val for key,val in stats.items()}
 	return stats

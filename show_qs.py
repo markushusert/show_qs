@@ -197,7 +197,7 @@ def evaluate_qs(qs_to_eval,partition_node_dict,partition_vtk_data_dict,error_sch
 	schnitt_layer_inside,wez_inside_layer,delr_inside,highest_uncut_iter_z=evaluate.get_wez(cut_iter_values,wez_iter_values)
 	output.write_results(os.path.join(g_dirs['post'],f"wez-layer-inside{qs_to_eval}.txt"),schnitt_layer_inside,wez_inside_layer)
 
-	stats=evaluate.qs_statistics(qs_to_eval,wez_layer,cut_iter_values,cut_iter_inside,delr,delr_inside)
+	stats=evaluate.qs_statistics(qs_to_eval,wez_layer,wez_inside_layer,cut_iter_values,cut_iter_inside,delr,delr_inside)
 	qs_stats_file=os.path.join(g_dirs['post'],f"qs_stats{qs_to_eval}.txt")
 	output.write_keyword_output(qs_stats_file,stats)
 	if g_debugflag:
