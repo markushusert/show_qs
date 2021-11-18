@@ -78,6 +78,7 @@ def deduct_element_length(partition_vtk_data_dict,partition_node_dict):
     #which equals one z-step
     iter_dict["p"]=1
     for iter_z in range(g_delz_array.shape[0]):
+        
         nodeid_pre=get_node_id(iter_dict)
         iter_dict["z"]+=1
         nodeid=get_node_id(iter_dict)

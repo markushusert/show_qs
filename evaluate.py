@@ -20,7 +20,7 @@ def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict
 	cut_values=list()
 	wez_values=list()
 	for iter_z in range(1,number_eles+1+1):#example: 36 elements->37 nodes->iter_z goes from 1 to 37
-		cut,wez=get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction)
+		wez,cut=get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction)
 		cut_values.append(cut)
 		wez_values.append(wez)
 	return np.array(cut_values),np.array(wez_values)
@@ -45,8 +45,8 @@ def get_wez(cut_iter_values,wez_iter_values):
 		#reduce evaluations
 		min_schnitt=min([min_schnitt,min_schnitt_r])
 		max_schnitt=max([max_schnitt,max_schnitt_r])
-		wez_layer[iter_layer-1]=wezmean
-		schnitt_layer[iter_layer-1]=schnittmean
+		wez_layer[iter_layer]=wezmean
+		schnitt_layer[iter_layer]=schnittmean
 		if first_uncut:
 			highest_uncut_iter_z=first_uncut
 
@@ -112,53 +112,36 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 	iter_r_half=int(1+mesh_data.g_mesh_data["r"]/2)
 	iter_r_end=1+mesh_data.g_mesh_data["r"]#plus 1 because one more node than elements
 
-	current_phase=2
-	list_of_values=[]
 	if direction==1:
 		limr=iter_r_end+1
 	else:
 		limr=0
+	list_of_values=[0.0,0.0]
+	
 	for iter_r in range(iter_r_half,limr,direction):
 		iter_dict={"r":iter_r,"p":iter_phi_qs,"z":iter_z}
 		nodeid=mesh_data.get_node_id(iter_dict)		
 		phase_of_node=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'phase')
 		
-		radius=mesh_data.g_r_array[iter_r-1]
-
-		if iter_r==iter_r_half:
-			radius_start=radius
-
-		if False:
-			print("iter_r: "+str(iter_r)+"phase: "+str(phase_of_node)+" radius: "+str(radius))
-
-		while phase_of_node[current_phase-1]!=1.0:
-			#either the evaporated or the wez intervall has stopped
-			#use while in case both phase changes occur between same nodes
-
+		if iter_r != 1:
 			delr_preceeding=mesh_data.g_delr_array[iter_r-2]
+		else:
+			delr_preceeding=0.0
+		if iter_r !=iter_r_end:
 			delr_following=mesh_data.g_delr_array[iter_r-1]
-
-			#calculate intervall length
-			if iter_r==iter_r_half:
-				#if the first iter_r (in the middle) take only half its width, because it extends to both sides
-				radius_start_new=radius+delr_preceeding*0.5*(phase_of_node[current_phase-1])
-			else:
-				if phase_of_node[current_phase-1]<0.5:
-					radius_start_new=radius+delr_preceeding*(-0.5+phase_of_node[current_phase-1])
-				else:
-					radius_start_new=radius+delr_following*(-0.5+phase_of_node[current_phase-1])
-			list_of_values.append(direction*(radius_start_new-radius_start))
-			if False:
-				print("delr:"+str((delr_preceeding,delr_following))+", factor: "+str(-0.5+phase_of_node[current_phase-1]))
-				print("phase end of phase "+str(current_phase)+"at iter_r: "+str(iter_r))
-				print("radius_start_new="+str(radius_start_new)+"radius_start="+str(radius_start))
-			radius_start=radius_start_new
-
-			
-			#now consider a new phase
-			current_phase=current_phase-1
-			if current_phase==0:
-				return tuple(list_of_values)
+		else:
+			delr_following=0.0
+		delr_node=(delr_following+delr_preceeding)/2
+		if iter_r ==iter_r_half:
+			delr_node=delr_node/2
+		if False:
+			print(f"iter_z:{iter_z},iter_r: "+str(iter_r)+"phase: "+str(phase_of_node)+" delr_node: "+str(delr_node))
+		already_considered_vol_ratio=0.0
+		for current_phase in range(1,-1,-1):
+			list_of_values[current_phase]+=delr_node*(1-already_considered_vol_ratio)*phase_of_node[current_phase]
+			already_considered_vol_ratio+=phase_of_node[current_phase]
+	return tuple(list_of_values)
+	
 def calc_slope_of_wez(wez_layers,idx=None):
 
 	if idx is None:
