@@ -25,7 +25,6 @@ def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict
 		wez_values.append(wez)
 	return np.array(cut_values),np.array(wez_values)
 
-
 def get_wez(cut_iter_values,wez_iter_values):
 	#calculates wez and cut widths for each of the g_nr_layers layers
 	#cut_iter_values=iterable(here np.array) of cut-widths of all iter_z-values
@@ -143,43 +142,51 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 	return tuple(list_of_values)
 	
 def calc_slope_of_wez(wez_layers,idx=None):
-
 	if idx is None:
 		idx=[i for i in range(len(wez_layers))]
 	z_vals=[(i+0.5)/g_nr_layers*output.g_specimen_thickness for i in idx]
 	res=scipy.stats.linregress(wez_layers,z_vals)
 	slope=res[0]
 	return slope
-def qs_statistics(qs,wez_layer,wez_inside_layer,cut_iter_values,cut_iter_inside,delr,delr_inside):
+
+def qs_statistics(qs,wez_mean,schnitt_mean,wez_layer_outside,wez_layer_inside,cut_iter_outside,cut_iter_inside):
 	#qs=integer of qs to eval
-	#wez_layer=list of g_nr_layers wez-values from bottom to top
-	#wez_inside_layer= list of g_nr_layers wez-values on the inside
+	#wez_mean=average of outside and inside wez
+	#wez_layer_outside=list of g_nr_layers wez-values from bottom to top
+	#wez_layer_inside= list of g_nr_layers wez-values on the inside
 	#cut_iter_values=np.array of cut-values for each iter-z on the outside
 	#cut_iter_inside=np.array of cut-values for each iter-z on the outside
 	#delr difference in cut-width upside vs downside on the outside
 	#delr_inside same but on the inside
+	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/g_nr_layers
 
 	stats={}
-	stats["spaltbreite_oben"]=cut_iter_values[-1]+cut_iter_inside[-1]
-	stats["spaltbreite_unten"]=cut_iter_values[0]+cut_iter_inside[0]
-	stats["mean_wez"]=error_calculation.avg(wez_layer)
-	mean_wez_inside=error_calculation.avg(wez_inside_layer)
-	stats["wez_ratio_out_in"]=stats["mean_wez"]/mean_wez_inside
-	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/g_nr_layers
-	layers_wich_are_totally_cut=[i for i in range(g_nr_layers) if all(cut_iter_values[j] for j in range(*get_iter_lims_of_layer(i)))]
-	wez_of_totally_cut_layers=[wez_layer[i] for i in layers_wich_are_totally_cut]
-	stats["slope"]=calc_slope_of_wez(wez_of_totally_cut_layers,layers_wich_are_totally_cut)
+	stats["spaltbreite_oben"]=cut_iter_outside[-1]+cut_iter_inside[-1]
+	stats["spaltbreite_unten"]=cut_iter_outside[0]+cut_iter_inside[0]
+	stats["mean_wez"]=error_calculation.avg(wez_mean)
+	stats["cut_mean"]=error_calculation.avg(schnitt_mean)
+	mean_wez_outside=error_calculation.avg(wez_layer_outside)
+	mean_wez_inside=error_calculation.avg(wez_layer_inside)
+	stats["wez_ratio_out_in"]=mean_wez_outside/mean_wez_inside
+	
+	layers_wich_are_totally_cut=[i for i in range(g_nr_layers) if all(cut_iter_outside[j] for j in range(*get_iter_lims_of_layer(i)))]
+	wez_of_totally_cut_layers=[wez_mean[i] for i in layers_wich_are_totally_cut]
+	stats["slope_wez"]=calc_slope_of_wez(wez_of_totally_cut_layers,layers_wich_are_totally_cut)
+	cut_of_totally_cut_layers=[schnitt_mean[i] for i in layers_wich_are_totally_cut]
+	stats["slope_cut"]=calc_slope_of_wez(cut_of_totally_cut_layers,layers_wich_are_totally_cut)
 	laengs_quer_idx_of_qs=error_calculation.laengs_quer_idx_dict.get(qs)
 	
 	if laengs_quer_idx_of_qs:
 		laengs_idx=laengs_quer_idx_of_qs["laengs"]
 		quer_idx=laengs_quer_idx_of_qs["quer"]
-		laengs_wez=[wez_layer[i] for i in laengs_idx]
-		quer_wez=[wez_layer[i] for i in quer_idx]
+		laengs_wez=[wez_mean[i] for i in laengs_idx]
+		quer_wez=[wez_mean[i] for i in quer_idx]
+
 		laengs_idx_cut=[i for i in layers_wich_are_totally_cut if i in laengs_idx]
 		quer_idx_cut=[i for i in layers_wich_are_totally_cut if i in quer_idx]
-		laengs_wez_cut=[wez_layer[i] for i in laengs_idx_cut]
-		quer_wez_cut=[wez_layer[i] for i in quer_idx_cut]
+		laengs_wez_cut=[wez_mean[i] for i in laengs_idx_cut]
+		quer_wez_cut=[wez_mean[i] for i in quer_idx_cut]
+
 		stats["mean_laengs"]=error_calculation.avg(laengs_wez)
 		stats["mean_quer"]=error_calculation.avg(quer_wez)
 		stats["max_laengs_min_quer"]=max(laengs_wez)/min([i for i in quer_wez if i>0])

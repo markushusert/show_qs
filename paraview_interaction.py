@@ -16,14 +16,12 @@ def read_data(data_dir):
 		print(".vtu-Files are expected to lie in "+os.path.abspath(data_dir))
 		print("which does not exist")
 		exit(1)
-	os.chdir(data_dir)
 	try:
-		subprocess.run(["pvdmake"])
+		subprocess.run(["pvdmake"],cwd=data_dir)
 	except:
 		print("error running pvdmake in "+os.path.abspath(data_dir))
 		print("make sure pvdmake is executable and the dir contains vtu-files")
 		raise Exception
-	os.chdir('../')
 
 
 	# create a new 'PVD Reader'

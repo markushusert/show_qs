@@ -15,29 +15,33 @@ with open(g_expected_result_file,"r") as fil:
     g_qs_to_eval=[int(string) for string in qs_to_eval_string.split(",")]
     
     g_expected_values_for_qs={}
+    arrays_to_give=("wez","cut")
     for qs in g_qs_to_eval:
         g_expected_values_for_qs[qs]={name:None for name in ["wez","delr"]}
-        given_wez_fac=False
+        given_fac=False
         for line in lines:
-            if line.startswith(f"wez{qs}:"):
+            for name in arrays_to_give:
+                if line.startswith(f"{name}{qs}:"):
+                    valuestring=line.split(":",1)[1]
+                    tokens=valuestring.split(",")
+                    try:
+                        g_expected_values_for_qs[qs][name]=[eval(tokens[i]) for i in range(12)]
+                    except IndexError:
+                        print("provide 12 values for the wez, from bottom to top")
+                        print(tokens)
+                        print(f"values provided:{[eval(tokens[i]) for i in range(12)]}")
+                        raise Exception
+            if line.startswith(f"fac{qs}:"):
                 valuestring=line.split(":",1)[1]
-                
-                try:
-                    wez_correct=[float(valuestring.split(",")[i]) for i in range(12)]
-                except IndexError:
-                    print("provide 12 values for the wez, from bottom to top")
-                    raise Exception
-            elif line.startswith(f"wez_fac{qs}:"):
-                valuestring=line.split(":",1)[1]
-                wez_fac=float(eval(valuestring))
-                given_wez_fac=True
+                fac=float(eval(valuestring))
+                given_fac=True
             elif line.startswith(f"delr{qs}:"):
                 valuestring=line.split(":",1)[1]
                 delr=float(eval(valuestring))
                 g_expected_values_for_qs[qs]["delr"]=delr
-        if given_wez_fac:
-            wez_correct=[value*wez_fac for value in wez_correct]
-            g_expected_values_for_qs[qs]["wez"]=copy.copy(wez_correct)
+        if given_fac:
+            for name in arrays_to_give:
+                g_expected_values_for_qs[qs][name]=[value*fac if value else None for value in g_expected_values_for_qs[qs][name]]
             
 def rel_deviation(a,b):
     if(a>b):
@@ -61,11 +65,16 @@ def calculate_laengs_quer_error(wez_layer,qs_to_eval):
     laengs_wez=[wez_layer[i] for i in laengs_schichten]
     quer_wez=[wez_layer[i] for i in quer_schichten]
 
-    error_laengs=error_of_given_layers(laengs_wez,laengs_schichten,qs_to_eval,True)
-    error_quer=error_of_given_layers(quer_wez,laengs_schichten,qs_to_eval,True)
+    deviations_laengs=get_deviation_of_layers(laengs_wez,laengs_schichten,qs_to_eval,"wez")
+    deviations_quer=get_deviation_of_layers(quer_wez,quer_schichten,qs_to_eval,"wez")
+    error_laengs=avg(deviations_laengs)
+    error_quer=avg(deviations_quer)
     return error_laengs,error_quer
 
-def error_of_given_layers(layer_values,layer_indices=None,qs_to_eval=0,signed=False):
+def sqrt_MSE(iterable):
+    return math.sqrt(sum(i*i for i in iterable))
+   
+def error_of_given_layers(layer_values,layer_indices=None,qs_to_eval=0,signed=False,name="wez"):
     #give error of a given list of layer_values and their corresponding layer_indices
     #by comparing with expected results in g_wez_correct
     #if signed option is given the signed error of each layer is averaged
@@ -74,12 +83,11 @@ def error_of_given_layers(layer_values,layer_indices=None,qs_to_eval=0,signed=Fa
     if layer_indices is None:
         layer_indices=[i for i in range(len(layer_values))]
 
-    wez_expected=[g_expected_values_for_qs[qs_to_eval]["wez"][i] for i in layer_indices]
-    if signed:
-        return avg([rel_deviation(wez,wez_correct)*abs(rel_deviation(wez,wez_correct)) for wez,wez_correct in zip(layer_values,wez_expected)])
-    else:
-        return avg([rel_deviation(wez,wez_correct)**2 for wez,wez_correct in zip(layer_values,wez_expected)])
-
+    deviation_of_layers=get_deviation_of_layers(layer_values,layer_indices,qs_to_eval,name)
+    return sqrt_MSE(deviation_of_layers)
+def get_deviation_of_layers(layer_values,layer_indices,qs_to_eval,name_to_eval):
+    wez_expected=[g_expected_values_for_qs[qs_to_eval][name_to_eval][i] for i in layer_indices]
+    return [rel_deviation(wez,wez_correct)*abs(rel_deviation(wez,wez_correct)) for wez,wez_correct in zip(layer_values,wez_expected) if wez_correct]
 def calc_error_schicht(ratio_uncut):
     error_schicht=ratio_uncut*100#100 is chosen arbitrary
     return error_schicht
@@ -88,18 +96,14 @@ def combine_errors(error_wez,error_delr,error_schicht):
     return math.sqrt(error_delr**2+error_wez**2)+error_schicht
 
 
-def calculate_res_error(wez_layer,delr,qs_to_eval,error_schicht):
+def calculate_res_error(wez_layer,cut_layer,qs_to_eval,error_schicht):
     #calculate resulting error by comparing given wez_layer,delr and ratio of uncut layers
     #with the expected results
     global g_expected_values_for_qs
     #
     error_wez=error_of_given_layers(wez_layer,qs_to_eval=qs_to_eval)
-    expected_delr=g_expected_values_for_qs[qs_to_eval]["delr"]
-    if expected_delr:
-        error_delr=rel_deviation(delr,g_expected_values_for_qs[qs_to_eval]["delr"])*abs(rel_deviation(delr,g_expected_values_for_qs[0]["delr"]))
-    else:
-        error_delr=0.0
-        
+    error_delr=error_of_given_layers(cut_layer,qs_to_eval=qs_to_eval,name="cut")
+      
     error_ges=combine_errors(error_wez,error_delr,error_schicht)
     print(f"error{qs_to_eval}={error_ges}")
     return error_wez,error_delr,error_schicht,error_ges
