@@ -2,6 +2,7 @@
 # trace generated using paraview version 5.9.0
 
 #### import the simple module from the paraview
+from numpy.core.function_base import linspace
 from paraview.simple import *
 from paraview.vtk.numpy_interface import dataset_adapter as dsa
 from paraview.vtk.numpy_interface import algorithms as algs
@@ -10,6 +11,7 @@ from paraview.vtk.numpy_interface import dataset_adapter as dsa
 import screenshot
 import numpy as np
 import matplotlib.pyplot as plt
+import customstats
 import math
 import os
 import sys
@@ -103,46 +105,6 @@ def select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay):
 	extractSelection1Display.SetScalarBarVisibility(renderView1, True)
 	
 	return extractSelection1,extractSelection1Display
-	
-def make_screenshot(extractSelection1,extractSelection1Display):
-	#the following function was recorded in paraview and creates the crossection-pictures based one the selected lower half
-	
-	
-	#### disable automatic camera reset on 'Show'
-	paraview.simple._DisableFirstRenderCameraReset()
-
-	# get active view
-	renderView1 = GetActiveViewOrCreate('RenderView')
-
-	# get layout
-	layout1 = GetLayout()
-
-	# layout/tab size in pixels
-	layout1.SetSize(986, 481)
-
-	# current camera placement for renderView1
-	renderView1.CameraPosition = [0.0008944676433444404, 0.012937819867921191, 0.0008607683051164721]
-	renderView1.CameraFocalPoint = [0.0008944676433444404, -0.00164414046, 0.0008607683051164721]
-	renderView1.CameraViewUp = [0.0, 0.0, 1.0]
-	renderView1.CameraParallelScale = 0.0012860993104049244
-	renderView1.CameraParallelProjection = 1
-
-	# save screenshot
-	SaveScreenshot(os.path.join(g_dirs['pics'],'without_edges.png'), renderView1, ImageResolution=[986, 481])
-
-	# get active source.
-	extractSelection1 = GetActiveSource()
-
-	# get display properties
-	extractSelection1Display = GetDisplayProperties(extractSelection1, view=renderView1)
-
-	# change representation type
-	extractSelection1Display.SetRepresentationType('Surface With Edges')
-
-	# save screenshot
-	SaveScreenshot(os.path.join(g_dirs['pics'],'with_edges.png'), renderView1, ImageResolution=[986, 481])
-
-
 
 
 def test_node_ids():
@@ -183,37 +145,42 @@ def evaluate_qs(qs_to_eval,partition_node_dict,partition_vtk_data_dict,error_sch
 	#evaluation of a qs
 	#outside measuring cut and wez
 	cut_iter_outside,wez_iter_outside=evaluate.get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
-	output.write_results(os.path.join(g_dirs['post'],f"wez-values{qs_to_eval}.txt"),cut_iter_outside,wez_iter_outside)
+	output.write_results(os.path.join(g_dirs['post'],f"wez-values-outside{qs_to_eval}.txt"),cut_iter_outside,wez_iter_outside)
 	output.plot_results(g_dirs['post'],qs_to_eval,cut_iter_outside,wez_iter_outside)
 
 	#inside measuring cut and wez
 	cut_iter_inside,wez_iter_inside=evaluate.get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict,-1)
 	output.write_results(os.path.join(g_dirs['post'],f"wez-values-inside{qs_to_eval}.txt"),cut_iter_inside,wez_iter_inside)
 
-	#later evaluate highest_uncut_iter_z globally and pass to evaluate_qs-function
-	schnitt_layer_outside,wez_layer_outside,delr,highest_uncut_iter_z=evaluate.get_wez(cut_iter_outside,wez_iter_outside)
-	output.write_results(os.path.join(g_dirs['post'],f"wez-layer{qs_to_eval}.txt"),schnitt_layer_outside,wez_layer_outside)
+	#average the wez/cut values of the nodes to calculate wez/cut values for laminate layers
+	schnitt_layer_outside,wez_layer_outside,delr_outside,highest_uncut_iter_z=evaluate.get_wez(cut_iter_outside,wez_iter_outside)
+	output.write_results(os.path.join(g_dirs['post'],f"wez-layer-outside{qs_to_eval}.txt"),schnitt_layer_outside,wez_layer_outside)
 
-	#later evaluate highest_uncut_iter_z globally and pass to evaluate_qs-function
 	schnitt_layer_inside,wez_layer_inside,delr_inside,highest_uncut_iter_z=evaluate.get_wez(cut_iter_inside,wez_iter_inside)
 	output.write_results(os.path.join(g_dirs['post'],f"wez-layer-inside{qs_to_eval}.txt"),schnitt_layer_inside,wez_layer_inside)
 
-	wez_mean=[wez_outside+wez_inside for wez_outside,wez_inside in zip(wez_layer_outside,wez_layer_inside)]
-	schnitt_mean=[schnitt_outside+schnitt_inside for schnitt_outside,schnitt_inside in zip(schnitt_layer_outside,schnitt_layer_inside)]
-	stats=evaluate.qs_statistics(qs_to_eval,wez_mean,schnitt_mean,wez_layer_outside,wez_layer_inside,cut_iter_outside,cut_iter_inside)
+	spaltbreite_of_iter=np.array([outside+inside for outside,inside in zip(cut_iter_outside,cut_iter_inside)])
+	layers_totally_cut=evaluate.get_totally_cut_layers(spaltbreite_of_iter)
+
+	#wez/cut mean are to be evaluated. set to None, if layer has not been totally cut
+	wez_mean=[(wez_outside+wez_inside)/2 if layer in layers_totally_cut else None for layer,(wez_outside,wez_inside) in enumerate(zip(wez_layer_outside,wez_layer_inside)) ]
+	#spalt_breite explicitely not /2
+	spalt_breite=[(schnitt_outside+schnitt_inside) if layer in layers_totally_cut else None for layer,(schnitt_outside,schnitt_inside) in enumerate(zip(schnitt_layer_outside,schnitt_layer_inside))]
+	
+	stats=evaluate.qs_statistics(qs_to_eval,wez_mean,spalt_breite,wez_layer_outside,wez_layer_inside,cut_iter_outside,cut_iter_inside)
 	qs_stats_file=os.path.join(g_dirs['post'],f"qs_stats{qs_to_eval}.txt")
 	output.write_keyword_output(qs_stats_file,stats)
 	if g_debugflag:
 		print("schnitt="+str(schnitt_layer_outside))
 		print("wez="+str(wez_layer_outside))
-		print("delr="+str(delr))
+
 
 	#only do error calculation if results exist
 	if error_calculation.g_expected_values_for_qs[qs_to_eval]["wez"]:
-		error_laengs,error_quer=error_calculation.calculate_laengs_quer_error(wez_layer_outside,qs_to_eval)
+		error_laengs,error_quer=error_calculation.calculate_laengs_quer_error(wez_mean,qs_to_eval)
 		#combination error_wez/delr verschiedener qs durch mittelung über qs
-		error_wez,error_delr,error_schicht,error_ges=error_calculation.calculate_res_error(wez_mean,schnitt_mean,qs_to_eval,error_schicht)
-		output.write_error_file(g_dirs['post'],qs_to_eval,error_wez,error_delr,None,error_ges)
+		error_wez,error_delr,error_schicht,error_ges=error_calculation.calculate_res_error(wez_mean,spalt_breite,qs_to_eval,error_schicht)
+		output.write_error_file(g_dirs['post'],qs_to_eval,error_wez,error_delr,error_schicht,error_ges)
 		output.write_signed_errors(g_dirs['post'],qs_to_eval,error_laengs,error_quer)
 		return error_wez,error_delr
 	else:
@@ -227,7 +194,7 @@ def main():
 	pview_out_allpvd,pview_out_allpvdDisplay,renderView1=paraview_interaction.read_data(g_dirs['res'])
 	
 	for qs_to_eval in error_calculation.g_qs_to_eval:
-		screenshot.make_screenshot_of_angle(qs_to_eval,pview_out_allpvd)
+		screenshot.make_screenshot_of_angle(qs_to_eval,pview_out_allpvd,g_dirs["pics"])
 		
 	partition_vtk_data_dict,partition_node_dict=setup_evaluation(pview_out_allpvd)
 	
@@ -243,8 +210,8 @@ def main():
 			wez_errors.append(error_wez)
 			cut_errors.append(error_cut)
 	
-	res_error_wez=error_calculation.sqrt_MSE(wez_errors)
-	res_error_cut=error_calculation.sqrt_MSE(cut_errors)
+	res_error_wez=customstats.sqrt_MSE(wez_errors)
+	res_error_cut=customstats.sqrt_MSE(cut_errors)
 	res_error_of_calc=error_calculation.combine_errors(res_error_wez,res_error_cut,error_schicht)
 	print(f"error={res_error_of_calc}")
 	output.write_error_file(g_dirs['post'],"",res_error_wez,res_error_cut,error_schicht,res_error_of_calc)

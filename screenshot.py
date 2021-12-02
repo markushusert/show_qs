@@ -39,16 +39,16 @@ def set_camera_to_normal_to_cutting_plane(angle):
 
 	
 	Render()
-def create_pngs(Selectiondisplay,angle):
+def create_pngs(Selectiondisplay,angle,dir):
 	renderView1 = GetActiveViewOrCreate('RenderView')
 	layout=GetLayout()
 	layoutsize=layout.GetSize()
 	Selectiondisplay.SetRepresentationType('Surface')
-	SaveScreenshot(f'without_edges{angle}.png', renderView1, ImageResolution=list(layoutsize))
+	SaveScreenshot(os.path.join(dir,f'without_edges{angle}.png'), renderView1, ImageResolution=list(layoutsize))
 
 	Selectiondisplay.SetRepresentationType('Surface With Edges')
-	SaveScreenshot(f'with_edges{angle}.png', renderView1, ImageResolution=list(layoutsize))
-def make_screenshot_of_angle(angle,pview_out_allpvd):
+	SaveScreenshot(os.path.join(dir,f'with_edges{angle}.png'), renderView1, ImageResolution=list(layoutsize))
+def make_screenshot_of_angle(angle,pview_out_allpvd,dir):
 	#rotate mesh around z-axis
 	set_camera_to_show_angled_draufsicht(angle)
 	
@@ -63,7 +63,7 @@ def make_screenshot_of_angle(angle,pview_out_allpvd):
 	set_camera_to_normal_to_cutting_plane(angle)
 	camera=GetActiveCamera()
 	camera.Zoom(5)
-	create_pngs(selectiondisplay,angle)
+	create_pngs(selectiondisplay,angle,dir)
 	camera.Zoom(1/5)
 	
 	#delete selection after creating screenshot

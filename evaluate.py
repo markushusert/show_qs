@@ -6,6 +6,7 @@ import partitions
 import error_calculation
 import output
 import scipy
+import customstats
 from scipy import stats
 
 g_debugflag=False
@@ -141,58 +142,47 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 			already_considered_vol_ratio+=phase_of_node[current_phase]
 	return tuple(list_of_values)
 	
-def calc_slope_of_wez(wez_layers,idx=None):
-	if idx is None:
-		idx=[i for i in range(len(wez_layers))]
-	z_vals=[(i+0.5)/g_nr_layers*output.g_specimen_thickness for i in idx]
-	res=scipy.stats.linregress(wez_layers,z_vals)
-	slope=res[0]
-	return slope
 
-def qs_statistics(qs,wez_mean,schnitt_mean,wez_layer_outside,wez_layer_inside,cut_iter_outside,cut_iter_inside):
+def get_totally_cut_layers(spaltbreite):
+	return [i for i in range(g_nr_layers) if all(spaltbreite[j] for j in range(*get_iter_lims_of_layer(i)))]
+
+def qs_statistics(qs,spalt_breite,schnitt_mean,wez_layer_outside,wez_layer_inside,cut_iter_outside,cut_iter_inside):
 	#qs=integer of qs to eval
-	#wez_mean=average of outside and inside wez
+	#wez_mean=average of outside and inside wez per layer
+	#spalt_breite=sum of outside and inside cut per layer
 	#wez_layer_outside=list of g_nr_layers wez-values from bottom to top
 	#wez_layer_inside= list of g_nr_layers wez-values on the inside
 	#cut_iter_values=np.array of cut-values for each iter-z on the outside
 	#cut_iter_inside=np.array of cut-values for each iter-z on the outside
 	#delr difference in cut-width upside vs downside on the outside
 	#delr_inside same but on the inside
-	nr_ele_per_layer=mesh_data.g_mesh_data["z"]/g_nr_layers
 
 	stats={}
 	stats["spaltbreite_oben"]=cut_iter_outside[-1]+cut_iter_inside[-1]
 	stats["spaltbreite_unten"]=cut_iter_outside[0]+cut_iter_inside[0]
-	stats["mean_wez"]=error_calculation.avg(wez_mean)
-	stats["cut_mean"]=error_calculation.avg(schnitt_mean)
-	mean_wez_outside=error_calculation.avg(wez_layer_outside)
-	mean_wez_inside=error_calculation.avg(wez_layer_inside)
+	stats["mean_wez"]=customstats.avg(spalt_breite)
+	stats["cut_mean"]=customstats.avg(schnitt_mean)
+	mean_wez_outside=customstats.avg(wez_layer_outside)
+	mean_wez_inside=customstats.avg(wez_layer_inside)
 	stats["wez_ratio_out_in"]=mean_wez_outside/mean_wez_inside
 	
-	layers_wich_are_totally_cut=[i for i in range(g_nr_layers) if all(cut_iter_outside[j] for j in range(*get_iter_lims_of_layer(i)))]
-	wez_of_totally_cut_layers=[wez_mean[i] for i in layers_wich_are_totally_cut]
-	stats["slope_wez"]=calc_slope_of_wez(wez_of_totally_cut_layers,layers_wich_are_totally_cut)
-	cut_of_totally_cut_layers=[schnitt_mean[i] for i in layers_wich_are_totally_cut]
-	stats["slope_cut"]=calc_slope_of_wez(cut_of_totally_cut_layers,layers_wich_are_totally_cut)
-	laengs_quer_idx_of_qs=error_calculation.laengs_quer_idx_dict.get(qs)
+	#wez_of_totally_cut_layers=[wez_mean[i] for i in layers_wich_are_totally_cut]
+	stats["slope_wez"]=customstats.calc_slope(spalt_breite)
+	stats["slope_cut"]=customstats.calc_slope(schnitt_mean)
 	
+	laengs_quer_idx_of_qs=error_calculation.laengs_quer_idx_dict.get(qs)
 	if laengs_quer_idx_of_qs:
 		laengs_idx=laengs_quer_idx_of_qs["laengs"]
 		quer_idx=laengs_quer_idx_of_qs["quer"]
-		laengs_wez=[wez_mean[i] for i in laengs_idx]
-		quer_wez=[wez_mean[i] for i in quer_idx]
+		laengs_wez=[wez if i in laengs_idx else None for i,wez in enumerate(spalt_breite)]
+		quer_wez=[wez if i in quer_idx else None for i,wez in enumerate(spalt_breite)]
 
-		laengs_idx_cut=[i for i in layers_wich_are_totally_cut if i in laengs_idx]
-		quer_idx_cut=[i for i in layers_wich_are_totally_cut if i in quer_idx]
-		laengs_wez_cut=[wez_mean[i] for i in laengs_idx_cut]
-		quer_wez_cut=[wez_mean[i] for i in quer_idx_cut]
-
-		stats["mean_laengs"]=error_calculation.avg(laengs_wez)
-		stats["mean_quer"]=error_calculation.avg(quer_wez)
-		stats["max_laengs_min_quer"]=max(laengs_wez)/min([i for i in quer_wez if i>0])
-		stats["max_quer_min_laengs"]=max(quer_wez)/min([i for i in laengs_wez if i>0])
-		stats["slope_laengs"]=calc_slope_of_wez(laengs_wez_cut,laengs_idx_cut)
-		stats["slope_quer"]=calc_slope_of_wez(quer_wez_cut,quer_idx_cut)
+		stats["mean_laengs"]=customstats.avg(laengs_wez)
+		stats["mean_quer"]=customstats.avg(quer_wez)
+		stats["max_laengs_min_quer"]=customstats.emax(laengs_wez)/customstats.emin(quer_wez)
+		stats["max_quer_min_laengs"]=customstats.emax(quer_wez)/customstats.emin(laengs_wez)
+		stats["slope_laengs"]=customstats.calc_slope(laengs_wez)
+		stats["slope_quer"]=customstats.calc_slope(quer_wez)
 	
 	stats={key+str(qs):val for key,val in stats.items()}
 	return stats
@@ -218,7 +208,7 @@ def get_highest_uncut_iter_z(partition_vtk_data_dict,partition_node_dict):
 	iter_phi_0_deg=mesh_data.deduct_iter_phi_to_eval(0.0)
 	iter_phi_90_deg=mesh_data.deduct_iter_phi_to_eval(1/2.0)
 	
-	for iter_z in range(mesh_data.g_mesh_data["z"],-1,-1):#loop from top to bottom
+	for iter_z in range(mesh_data.g_mesh_data["z"],0,-1):#loop from top to bottom
 		iter_z_is_cut=True
 		for iter_phi in range(iter_phi_0_deg,iter_phi_90_deg+1):#only loop over inner phis
 			nodeid=mesh_data.get_node_id({"r":iter_r+1,"z":iter_z+1,"p":iter_phi+1})
@@ -227,9 +217,9 @@ def get_highest_uncut_iter_z(partition_vtk_data_dict,partition_node_dict):
 				iter_z_is_cut=False
 				break
 		if not iter_z_is_cut:
-			return iter_z+1
+			return iter_z
 	#no uncut iter_z was found
-	return None
+	return 0
 
 def dummy():
     return float("0.1")
@@ -284,5 +274,6 @@ def global_evaluation(partition_vtk_data_dict,partition_node_dict):
 					volume_per_mat[i]+=volume_of_node*ratio_mat[i]
 				for i in range(len(energy_per_phase)):
 					energy_per_phase[i]+=energy_of_node*ratio_phase[i]
-					volume_per_phase+=volume_of_node*ratio_phase[i]
+					volume_per_phase[i]+=volume_of_node*ratio_phase[i]
+
 	return energy_per_mat,volume_per_mat,energy_per_phase,volume_per_phase
