@@ -131,10 +131,13 @@ def setup_evaluation(pview_out_allpvd):
 
 def global_evaluation(partition_vtk_data_dict,partition_node_dict):
 	#carry out the global evaluation
-	energy_per_mat,volume_per_mat,energy_per_phase,volume_per_phase=evaluate.global_evaluation(partition_vtk_data_dict,partition_node_dict)
-	highest_uncut_iter_z=evaluate.get_highest_uncut_iter_z(partition_vtk_data_dict,partition_node_dict)
-	uncut_ratio=highest_uncut_iter_z/(mesh_data.g_mesh_data["z"]+1)
-	output.write_global_stats(g_dirs['post'],energy_per_mat,volume_per_mat,energy_per_phase,volume_per_phase,uncut_ratio)
+	glob_stats=evaluate.global_evaluation(partition_vtk_data_dict,partition_node_dict)
+	nr_uncut_iter_z=evaluate.get_nr_uncut_iter_z(partition_vtk_data_dict,partition_node_dict)
+	uncut_ratio=evaluate.get_uncut_ratio(nr_uncut_iter_z)
+	glob_stats["uncut_ratio"]=uncut_ratio
+	glob_stats_file=os.path.join(g_dirs['post'],output.g_global_stats_file)
+	output.write_keyword_output(glob_stats_file,glob_stats)
+	#output.write_global_stats(g_dirs['post'],energy_per_mat,volume_per_mat,energy_per_phase,volume_per_phase,uncut_ratio)
 	return uncut_ratio
 
 def evaluate_qs(qs_to_eval,partition_node_dict,partition_vtk_data_dict,error_schicht):
