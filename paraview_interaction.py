@@ -33,8 +33,7 @@ def read_data(data_dir):
 	# get active view
 	renderView1 = GetActiveViewOrCreate('RenderView')
 	
-	#set time to last timestep
-	renderView1.ViewTime=pview_out_allpvd.TimestepValues[-1]
+	
 	# show data in view
 	pview_out_allpvdDisplay = Show(pview_out_allpvd, renderView1,representationType='UnstructuredGridRepresentation')
 	

@@ -28,8 +28,6 @@ import partitions
 g_debugflag=False
 g_dirs={"res":"Results","post":"Post","pics":"Pics"}
 
-
-
 def select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay):
 	#the following function was recorded in paraview and selects the lower half of the mesh, in order to create querschliff-pictures
 
@@ -149,12 +147,12 @@ def evaluate_qs(qs_to_eval,partition_node_dict,partition_vtk_data_dict,error_sch
 	#outside measuring cut and wez
 	cut_iter_outside,wez_iter_outside=evaluate.get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
 	output.write_results(os.path.join(g_dirs['post'],f"wez-values-outside{qs_to_eval}.txt"),cut_iter_outside,wez_iter_outside)
-	output.plot_results(g_dirs['post'],qs_to_eval,cut_iter_outside,wez_iter_outside)
+	
 
 	#inside measuring cut and wez
 	cut_iter_inside,wez_iter_inside=evaluate.get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict,-1)
 	output.write_results(os.path.join(g_dirs['post'],f"wez-values-inside{qs_to_eval}.txt"),cut_iter_inside,wez_iter_inside)
-
+	output.plot_results(g_dirs['pics'],qs_to_eval,cut_iter_outside,wez_iter_outside,cut_iter_inside,wez_iter_inside)
 	#average the wez/cut values of the nodes to calculate wez/cut values for laminate layers
 	schnitt_layer_outside,wez_layer_outside,delr_outside,highest_uncut_iter_z=evaluate.get_wez(cut_iter_outside,wez_iter_outside)
 	output.write_results(os.path.join(g_dirs['post'],f"wez-layer-outside{qs_to_eval}.txt"),schnitt_layer_outside,wez_layer_outside)
@@ -196,8 +194,11 @@ def main():
 	
 	pview_out_allpvd,pview_out_allpvdDisplay,renderView1=paraview_interaction.read_data(g_dirs['res'])
 	
-	for qs_to_eval in error_calculation.g_qs_to_eval:
-		screenshot.make_screenshot_of_angle(qs_to_eval,pview_out_allpvd,g_dirs["pics"])
+	#make screenshot of each timestep
+	for timestep in pview_out_allpvd.TimestepValues:
+		renderView1.ViewTime=timestep
+		for qs_to_eval in error_calculation.g_qs_to_eval:
+			screenshot.make_screenshot_of_angle(qs_to_eval,pview_out_allpvd,g_dirs["pics"],timestep)
 		
 	partition_vtk_data_dict,partition_node_dict=setup_evaluation(pview_out_allpvd)
 	

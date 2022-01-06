@@ -13,6 +13,11 @@ def select_lower_half(pview_out_allpvd):
 	extractSelection1Display = Show(extractSelection1, GetActiveView(),representationType='UnstructuredGridRepresentation')
 	# set scalar coloring
 	ColorBy(extractSelection1Display, ('POINTS', 'phase', 'Magnitude'))
+	# get color transfer function/color map for 'phase'
+	phaseLUT = GetColorTransferFunction('phase')
+
+	# Rescale transfer function
+	phaseLUT.RescaleTransferFunction(0.0, math.sqrt(2))
 	return extractSelection1,extractSelection1Display
 def set_camera_to_show_angled_draufsicht(angle):
 	angle_plane=angle/180*math.pi
@@ -39,16 +44,16 @@ def set_camera_to_normal_to_cutting_plane(angle):
 
 	
 	Render()
-def create_pngs(Selectiondisplay,angle,dir):
+def create_pngs(Selectiondisplay,angle,dir,timestep):
 	renderView1 = GetActiveViewOrCreate('RenderView')
 	layout=GetLayout()
 	layoutsize=layout.GetSize()
 	Selectiondisplay.SetRepresentationType('Surface')
-	SaveScreenshot(os.path.join(dir,f'without_edges{angle}.png'), renderView1, ImageResolution=list(layoutsize))
+	SaveScreenshot(os.path.join(dir,f'without_edges{angle}_cycle{timestep}.png'), renderView1, ImageResolution=list(layoutsize))
 
 	Selectiondisplay.SetRepresentationType('Surface With Edges')
-	SaveScreenshot(os.path.join(dir,f'with_edges{angle}.png'), renderView1, ImageResolution=list(layoutsize))
-def make_screenshot_of_angle(angle,pview_out_allpvd,dir):
+	SaveScreenshot(os.path.join(dir,f'with_edges{angle}_cycle{timestep}.png'), renderView1, ImageResolution=list(layoutsize))
+def make_screenshot_of_angle(angle,pview_out_allpvd,dir,timestep):
 	#rotate mesh around z-axis
 	set_camera_to_show_angled_draufsicht(angle)
 	
@@ -63,7 +68,7 @@ def make_screenshot_of_angle(angle,pview_out_allpvd,dir):
 	set_camera_to_normal_to_cutting_plane(angle)
 	camera=GetActiveCamera()
 	camera.Zoom(5)
-	create_pngs(selectiondisplay,angle,dir)
+	create_pngs(selectiondisplay,angle,dir,timestep)
 	camera.Zoom(1/5)
 	
 	#delete selection after creating screenshot
@@ -117,7 +122,7 @@ def read_data(data_dir):
 def main():
 	pview_out_allpvd, pview_out_allpvdDisplay,renderView1=read_data(os.getcwd())
 	for angle in [0,45,90]:
-		make_screenshot_of_angle(angle,pview_out_allpvd)
+		make_screenshot_of_angle(angle,pview_out_allpvd,0)
 		if angle ==qs_to_break:
 			return
 

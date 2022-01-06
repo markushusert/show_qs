@@ -1,6 +1,6 @@
 import math
 import scipy
-import output
+
 g_nr_layers=12
 g_debug=False
 #statistical operators, must support None as iterable element
@@ -26,6 +26,7 @@ def emin(list):
         print(f"min of list {list} is {res}")
     return res
 def calc_slope(list,idx=None):
+	import output
 	if idx is None:
 		idx=[i for i in range(len(list))]
 	list_filtered=[num for num in list if num is not None]
