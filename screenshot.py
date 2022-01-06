@@ -49,10 +49,10 @@ def create_pngs(Selectiondisplay,angle,dir,timestep):
 	layout=GetLayout()
 	layoutsize=layout.GetSize()
 	Selectiondisplay.SetRepresentationType('Surface')
-	SaveScreenshot(os.path.join(dir,f'without_edges{angle}_cycle{timestep}.png'), renderView1, ImageResolution=list(layoutsize))
+	SaveScreenshot(os.path.join(dir,f'without_edges{angle}_cycle{int(timestep)}.png'), renderView1, ImageResolution=list(layoutsize))
 
 	Selectiondisplay.SetRepresentationType('Surface With Edges')
-	SaveScreenshot(os.path.join(dir,f'with_edges{angle}_cycle{timestep}.png'), renderView1, ImageResolution=list(layoutsize))
+	SaveScreenshot(os.path.join(dir,f'with_edges{angle}_cycle{int(timestep)}.png'), renderView1, ImageResolution=list(layoutsize))
 def make_screenshot_of_angle(angle,pview_out_allpvd,dir,timestep):
 	#rotate mesh around z-axis
 	set_camera_to_show_angled_draufsicht(angle)
