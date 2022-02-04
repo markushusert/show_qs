@@ -1,0 +1,2 @@
+#!/usr/bin/bash
+show_qs.py && overlay.py

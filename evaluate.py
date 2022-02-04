@@ -10,7 +10,7 @@ import customstats
 from scipy import stats
 
 g_debugflag=False
-g_main_file="I_lasrcut"
+g_main_file="Ilasrcut"
 g_nr_layers=12
 def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction=1):
 	#iter_phi_qs=integer indicating which cross-section shall be evaluated
@@ -237,6 +237,7 @@ def global_evaluation(partition_vtk_data_dict,partition_node_dict):
 	
 	energy_per_phase=[0.0 for i in range(3)]
 	volume_per_phase=[0.0 for i in range(3)]
+	
 	#0-> energy adsorbed by matrix, 1-> energy adsorbed by faser,sum of energy adsorbed
 	energy_per_mat=[0.0 for i in range(3)]
 	#0->evaporated matrix vol, 1-> evaporated faser vol, 2-> total evaporated vol

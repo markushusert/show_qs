@@ -28,13 +28,15 @@ def read_partitions(Resultdir):
     #where global_id is the global id of a node, who belongs to n partitions (see Ghost-nodes)
 
     list_of_partition_files=get_partition_files(Resultdir)
-    print("reading partition data")
+    
     if len(list_of_partition_files):
+        print("reading partition data")
         node_partition=defaultdict(list)
         #parallele rechnung
         for partition_file in list_of_partition_files:
             read_partition_file(partition_file,node_partition)
     else:
+        print("serial calculation, not reading partition data")
     	#serial calculation, make defaultdict that always returns partition one and same nodeid
     	
     	#local definition of function
@@ -46,13 +48,13 @@ def read_partitions(Resultdir):
     return node_partition
 def get_partition_files(Resultdir):
     #returns list of partitionfiles in Resultdir
-    partition_files_pattern=os.path.join(Resultdir,"I_*"+"[0-9]"*4)
+    partition_files_pattern=os.path.join(Resultdir,"I*"+"[0-9]"*4)
     return glob.glob(partition_files_pattern)
 
 def read_partition_file(partition_file,node_partition):
     #adds local node and partition decribed in partition_file to their global node
 
-    #partition_file=file named I_{calculationname}{partitionnr}
+    #partition_file=file named I{calculationname}{partitionnr}
     #node_partition=defaultdict of type list, to be filled with partition data from each file
     
     found_partition=False
@@ -79,9 +81,11 @@ def get_array_value_of_global_id(node_partition,data_split_into_partitions,globa
 
     local_adresses_of_global_node=node_partition[global_id]
     set_of_array_values=set()
+    #print(f"local_adresses_of_global_node={local_adresses_of_global_node}")
     for partition_id,local_id in local_adresses_of_global_node:
         partition_data=data_split_into_partitions[partition_id]
         if arrayname=="coords":
+            #print(f"local_id={local_id}, nr_id={partition_data[1].GetNumberOfPoints()}")
             array_value=partition_data[1].GetPoint(local_id-1)
         else:
             array_value=partition_data[0].GetAbstractArray(arrayname).GetTuple(local_id-1)

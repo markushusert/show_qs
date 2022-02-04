@@ -101,6 +101,7 @@ def plot_results(post_dir,qs_to_eval,cut_iter_outside,wez_iter_outside,cut_iter_
 			else:
 				print(f"could not find background picture:{experimental_pic}")
 def overlay_image(image_background,image_res,image_result,ratio,bound):
+    #print(f"overlaying images:{image_background},{image_res}")
     background = Image.open(image_background)
     overlay = Image.open(image_res)
     

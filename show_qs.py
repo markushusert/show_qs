@@ -243,7 +243,7 @@ def print_helptext():
 		"\tscript needs to be executed via pvpython, see the shebang"
 		"\n"
 		"required files:"
-		"\tpartition_files: \"./Results/I_lasrcut_0001\" and so on\n"
+		"\tpartition_files: \"./Results/Ilasrcut_0001\" and so on\n"
 		"\tparaview_files: \"*.vtu\""
 		"\tMESH-file: \"./MESH_lasrcut\"\n"
 		f"\tthe correct values of wez have to be indicated in {error_calculation.g_expected_result_file}"

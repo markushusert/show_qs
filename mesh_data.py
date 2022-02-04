@@ -82,7 +82,6 @@ def deduct_element_length(partition_vtk_data_dict,partition_node_dict):
         nodeid_pre=get_node_id(iter_dict)
         iter_dict["z"]+=1
         nodeid=get_node_id(iter_dict)
-
         coords_preceeding=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid_pre,'coords')
         coords=partitions.get_array_value_of_global_id(partition_node_dict,partition_vtk_data_dict,nodeid,'coords')
         
