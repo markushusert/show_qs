@@ -145,10 +145,9 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 
 def get_totally_cut_layers(spaltbreite):
 	return [i for i in range(g_nr_layers) if all(spaltbreite[j] for j in range(*get_iter_lims_of_layer(i)))]
-
-def qs_statistics(qs,spalt_breite,schnitt_mean,wez_layer_outside,wez_layer_inside,cut_iter_outside,cut_iter_inside):
+def qs_statistics(qs,wez_layer,spalt_breite,wez_layer_outside,wez_layer_inside,cut_iter_outside,cut_iter_inside):
 	#qs=integer of qs to eval
-	#wez_mean=average of outside and inside wez per layer
+	#wez_layer=average of outside and inside wez per layer
 	#spalt_breite=sum of outside and inside cut per layer
 	#wez_layer_outside=list of g_nr_layers wez-values from bottom to top
 	#wez_layer_inside= list of g_nr_layers wez-values on the inside
@@ -160,22 +159,31 @@ def qs_statistics(qs,spalt_breite,schnitt_mean,wez_layer_outside,wez_layer_insid
 	stats={}
 	stats["spaltbreite_oben"]=cut_iter_outside[-1]+cut_iter_inside[-1]
 	stats["spaltbreite_unten"]=cut_iter_outside[0]+cut_iter_inside[0]
-	stats["mean_wez"]=customstats.avg(spalt_breite)
-	stats["cut_mean"]=customstats.avg(schnitt_mean)
-	mean_wez_outside=customstats.avg(wez_layer_outside)
-	mean_wez_inside=customstats.avg(wez_layer_inside)
-	stats["wez_ratio_out_in"]=mean_wez_outside/mean_wez_inside
+	stats["mean_wez"]=customstats.avg(wez_layer)
+	stats["cut_mean"]=customstats.avg(spalt_breite)
+	
 	
 	#wez_of_totally_cut_layers=[wez_mean[i] for i in layers_wich_are_totally_cut]
-	stats["slope_wez"]=customstats.calc_slope(spalt_breite)
-	stats["slope_cut"]=customstats.calc_slope(schnitt_mean)
+	stats["slope_wez"]=customstats.calc_slope(wez_layer)
+	stats["slope_cut"]=customstats.calc_slope(spalt_breite)
 	
 	laengs_quer_idx_of_qs=error_calculation.laengs_quer_idx_dict.get(qs)
 	if laengs_quer_idx_of_qs:
 		laengs_idx=laengs_quer_idx_of_qs["laengs"]
 		quer_idx=laengs_quer_idx_of_qs["quer"]
-		laengs_wez=[wez if i in laengs_idx else None for i,wez in enumerate(spalt_breite)]
-		quer_wez=[wez if i in quer_idx else None for i,wez in enumerate(spalt_breite)]
+		laengs_wez=[wez if i in laengs_idx else None for i,wez in enumerate(wez_layer)]
+		quer_wez=[wez if i in quer_idx else None for i,wez in enumerate(wez_layer)]
+		
+		laengs_wez_inside=[wez if i in laengs_idx else None for i,wez in enumerate(wez_layer_inside)]
+		quer_wez_inside=[wez if i in quer_idx else None for i,wez in enumerate(wez_layer_inside)]
+		laengs_wez_outside=[wez if i in laengs_idx else None for i,wez in enumerate(wez_layer_outside)]
+		quer_wez_outside=[wez if i in quer_idx else None for i,wez in enumerate(wez_layer_outside)]
+		mean_wez_outside_laengs=customstats.avg(laengs_wez_outside)
+		mean_wez_inside_laengs=customstats.avg(laengs_wez_inside)
+		mean_wez_outside_quer=customstats.avg(quer_wez_outside)
+		mean_wez_inside_quer=customstats.avg(quer_wez_inside)
+		stats["wez_ratio_out_in_laengs"]=mean_wez_outside_laengs/mean_wez_inside_laengs
+		stats["wez_ratio_out_in_quer"]=mean_wez_outside_quer/mean_wez_inside_quer
 
 		stats["mean_laengs"]=customstats.avg(laengs_wez)
 		stats["mean_quer"]=customstats.avg(quer_wez)
