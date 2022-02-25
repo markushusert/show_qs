@@ -171,9 +171,6 @@ def evaluate_qs(qs_to_eval,partition_node_dict,partition_vtk_data_dict,error_sch
 	stats=evaluate.qs_statistics(qs_to_eval,wez_mean,spalt_breite,wez_layer_outside,wez_layer_inside,cut_iter_outside,cut_iter_inside)
 	qs_stats_file=os.path.join(g_dirs['post'],f"qs_stats{qs_to_eval}.txt")
 	output.write_keyword_output(qs_stats_file,stats)
-	if g_debugflag:
-		print("schnitt="+str(schnitt_layer_outside))
-		print("wez="+str(wez_layer_outside))
 
 
 	#only do error calculation if results exist

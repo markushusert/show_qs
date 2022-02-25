@@ -6,7 +6,7 @@ import customstats
 g_nr_layers=customstats.g_nr_layers
 g_script_dir = os.path.dirname(os.path.realpath(__file__))
 g_expected_result_file=os.path.join(g_script_dir,"expected_results.txt")
-g_debug=False
+g_debugflag=False
 #in the same dir as the post-scripts is supposed to lie a file indicating the expected results of wez and cut
 with open(g_expected_result_file,"r") as fil:
 	global g_qs_to_eval,g_expected_values_for_qs
@@ -70,12 +70,12 @@ def calculate_laengs_quer_error(wez_layer,qs_to_eval):
 
 	deviations_laengs=get_deviation_of_layers(laengs_wez,qs_to_eval,"wez")
 	error_laengs=customstats.avg(deviations_laengs)
-	if g_debug:
+	if g_debugflag:
 		print(f"error_of_layers:{laengs_wez} is {error_laengs}")
 	
 	deviations_quer=get_deviation_of_layers(quer_wez,qs_to_eval,"wez")
 	error_quer=customstats.avg(deviations_quer)
-	if g_debug:
+	if g_debugflag:
 		print(f"error_of_layers:{quer_wez} is {error_quer}")
 	return error_laengs,error_quer
 
@@ -88,12 +88,15 @@ def error_of_given_layers(layer_values,qs_to_eval=0,signed=False,name="wez"):
 	global g_expected_values_for_qs
 	deviation_of_layers=get_deviation_of_layers(layer_values,qs_to_eval,name)
 	res=customstats.sqrt_MSE(deviation_of_layers)
-	if g_debug:
+	if g_debugflag:
 		print(f"{name}-error of layers:{layer_values} is {res}")
 	return res
 def get_deviation_of_layers(layer_values,qs_to_eval,name_to_eval):
 	wez_expected=[g_expected_values_for_qs[qs_to_eval][name_to_eval][i] for i in range(len(layer_values))]
-	return [customstats.rel_deviation(wez,wez_correct) for wez,wez_correct in zip(layer_values,wez_expected)]
+	deviation=[customstats.rel_deviation(wez,wez_correct) for wez,wez_correct in zip(layer_values,wez_expected)]
+	if g_debugflag:
+		print(f"layers_simulated:{layer_values},layers_experimental:{wez_expected},deviation:{deviation}")
+	return deviation
 def calc_error_schicht(ratio_uncut):
 	error_schicht=ratio_uncut*10#10 is chosen arbitrary
 	return error_schicht

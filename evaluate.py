@@ -24,6 +24,8 @@ def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict
 		wez,cut=get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction)
 		cut_values.append(cut)
 		wez_values.append(wez)
+	if g_debugflag:
+		print(f"direction:{direction},cut(iter):{cut_values},wez(iter):{wez_values}")
 	return np.array(cut_values),np.array(wez_values)
 
 def get_wez(cut_iter_values,wez_iter_values):
@@ -83,7 +85,7 @@ def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 	min_schnitt=math.inf
 	max_schnitt=-math.inf
 	for iter_z in range(iter_z_low,iter_z_high):
-		if iter_z in [iter_z_high-1,iter_z_low]:#iters at top and bottom of layer only count for half, since they are shared
+		if iter_z in [iter_z_high-1,iter_z_low]:
 			weight=0.5
 		else:
 			weight=1.0
@@ -99,7 +101,9 @@ def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 		min_schnitt=min([delr_schnitt,min_schnitt])
 		max_schnitt=max([delr_schnitt,max_schnitt])
 		if g_debugflag:
-			print("iter_z: "+str(iter_z)+", in layer: "+str(layer_number)+" has wez: "+str(delr_wez)+" and cut: "+str(delr_schnitt))
+			print("iter_z: "+str(iter_z)+", weight: "+str(weight)+" has cut: "+str(delr_schnitt)+" and wez: "+str(delr_wez))
+	if g_debugflag:
+		print(f"layer {layer_number} has resulting cut:{schnitt_acc/weight_acc} and wez:{wez_acc/weight_acc}")
 	return schnitt_acc/weight_acc, wez_acc/weight_acc,min_schnitt,max_schnitt,first_wez_uncut
 
 def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction):
@@ -134,12 +138,15 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 		delr_node=(delr_following+delr_preceeding)/2
 		if iter_r ==iter_r_half:
 			delr_node=delr_node/2
-		if False:
+		if g_debugflag:
 			print(f"iter_z:{iter_z},iter_r: "+str(iter_r)+"phase: "+str(phase_of_node)+" delr_node: "+str(delr_node))
 		already_considered_vol_ratio=0.0
 		for current_phase in range(1,-1,-1):
+			
 			list_of_values[current_phase]+=delr_node*(1-already_considered_vol_ratio)*phase_of_node[current_phase]
-			already_considered_vol_ratio+=phase_of_node[current_phase]
+			already_considered_vol_ratio+=phase_of_node[current_phase]#for more then 2 phases would need to be adapted by factor (1-already_considered_vol_ratio)
+			if g_debugflag:
+				print(f"already_considered_vol_ratio:{already_considered_vol_ratio}")
 	return tuple(list_of_values)
 	
 
