@@ -83,7 +83,7 @@ def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 	min_schnitt=math.inf
 	max_schnitt=-math.inf
 	for iter_z in range(iter_z_low,iter_z_high):
-		if iter_z in [iter_z_high,iter_z_low]:
+		if iter_z in [iter_z_high-1,iter_z_low]:#iters at top and bottom of layer only count for half, since they are shared
 			weight=0.5
 		else:
 			weight=1.0
