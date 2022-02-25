@@ -147,12 +147,12 @@ def evaluate_qs(qs_to_eval,partition_node_dict,partition_vtk_data_dict,error_sch
 	#outside measuring cut and wez
 	cut_iter_outside,wez_iter_outside=evaluate.get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict)
 	output.write_results(os.path.join(g_dirs['post'],f"wez-values-outside{qs_to_eval}.txt"),cut_iter_outside,wez_iter_outside)
-	
-
 	#inside measuring cut and wez
 	cut_iter_inside,wez_iter_inside=evaluate.get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict,-1)
 	output.write_results(os.path.join(g_dirs['post'],f"wez-values-inside{qs_to_eval}.txt"),cut_iter_inside,wez_iter_inside)
+	
 	output.plot_results(g_dirs['pics'],qs_to_eval,cut_iter_outside,wez_iter_outside,cut_iter_inside,wez_iter_inside)
+	
 	#average the wez/cut values of the nodes to calculate wez/cut values for laminate layers
 	schnitt_layer_outside,wez_layer_outside,delr_outside,highest_uncut_iter_z=evaluate.get_wez(cut_iter_outside,wez_iter_outside)
 	output.write_results(os.path.join(g_dirs['post'],f"wez-layer-outside{qs_to_eval}.txt"),schnitt_layer_outside,wez_layer_outside)
