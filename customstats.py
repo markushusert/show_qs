@@ -41,9 +41,9 @@ def rel_deviation(a,b):
         res= None
     else:
         if(a>b):
-            res= (a-b)/a
-        else:
             res= (a-b)/b
+        else:
+            res= (a-b)/a
     if g_debug:
         print(f"dev of {a} and {b} is {res}")
     return res

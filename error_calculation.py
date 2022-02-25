@@ -71,12 +71,12 @@ def calculate_laengs_quer_error(wez_layer,qs_to_eval):
 	deviations_laengs=get_deviation_of_layers(laengs_wez,qs_to_eval,"wez")
 	error_laengs=customstats.avg(deviations_laengs)
 	if g_debugflag:
-		print(f"error_of_layers:{laengs_wez} is {error_laengs}")
+		print(f"error_of_laengslayers:{laengs_wez} is {error_laengs}")
 	
 	deviations_quer=get_deviation_of_layers(quer_wez,qs_to_eval,"wez")
 	error_quer=customstats.avg(deviations_quer)
 	if g_debugflag:
-		print(f"error_of_layers:{quer_wez} is {error_quer}")
+		print(f"error_of_querlayers:{quer_wez} is {error_quer}")
 	return error_laengs,error_quer
 
 
@@ -102,6 +102,8 @@ def calc_error_schicht(ratio_uncut):
 	return error_schicht
 
 def combine_errors(error_wez,error_delr,error_schicht):
+	if g_debugflag:
+		print(f"error_wez:{error_wez},error_delr:{error_delr},error_schicht:{error_schicht}")
 	return math.sqrt(error_delr**2+error_wez**2)+error_schicht
 
 
