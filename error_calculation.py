@@ -7,6 +7,8 @@ g_nr_layers=customstats.g_nr_layers
 g_script_dir = os.path.dirname(os.path.realpath(__file__))
 g_expected_result_file=os.path.join(g_script_dir,"expected_results.txt")
 g_debugflag=False
+g_error_schicht_scale=10#arbitrary
+g_error_cut_scale=5#arbitary
 #in the same dir as the post-scripts is supposed to lie a file indicating the expected results of wez and cut
 with open(g_expected_result_file,"r") as fil:
 	global g_qs_to_eval,g_expected_values_for_qs
@@ -98,13 +100,13 @@ def get_deviation_of_layers(layer_values,qs_to_eval,name_to_eval):
 		print(f"layers_simulated:{layer_values},layers_experimental:{wez_expected},deviation:{deviation}")
 	return deviation
 def calc_error_schicht(ratio_uncut):
-	error_schicht=ratio_uncut*30#30 is chosen arbitrary
+	error_schicht=ratio_uncut*g_error_schicht_scale
 	return error_schicht
 
 def combine_errors(error_wez,error_delr,error_schicht):
 	if g_debugflag:
 		print(f"error_wez:{error_wez},error_delr:{error_delr},error_schicht:{error_schicht}")
-	return math.sqrt(error_delr**2+error_wez**2)+error_schicht
+	return math.sqrt((error_delr/g_error_cut_scale)**2+error_wez**2)+error_schicht
 
 
 def calculate_res_error(wez_layer,cut_layer,qs_to_eval,error_schicht):
