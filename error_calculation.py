@@ -98,7 +98,7 @@ def get_deviation_of_layers(layer_values,qs_to_eval,name_to_eval):
 		print(f"layers_simulated:{layer_values},layers_experimental:{wez_expected},deviation:{deviation}")
 	return deviation
 def calc_error_schicht(ratio_uncut):
-	error_schicht=ratio_uncut*10#10 is chosen arbitrary
+	error_schicht=ratio_uncut*30#30 is chosen arbitrary
 	return error_schicht
 
 def combine_errors(error_wez,error_delr,error_schicht):
