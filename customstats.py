@@ -6,7 +6,10 @@ g_debug=False
 #statistical operators, must support None as iterable element
 def avg(list):
     list_filtered=[num for num in list if num is not None]
-    res=sum(list_filtered)/len(list_filtered)
+    if len(list_filtered):
+        res=sum(list_filtered)/len(list_filtered)
+    else:
+        res=float("NaN")
     if g_debug:
         print(f"avg of list {list} is {res}")
     return res

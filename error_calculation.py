@@ -6,7 +6,8 @@ import customstats
 g_nr_layers=customstats.g_nr_layers
 g_script_dir = os.path.dirname(os.path.realpath(__file__))
 g_expected_result_file=os.path.join(g_script_dir,"expected_results.txt")
-g_debugflag=False
+import settings_post
+g_debugflag=settings_post.g_debugflag
 g_error_schicht_scale=10#arbitrary
 g_error_cut_scale=5#arbitary
 #in the same dir as the post-scripts is supposed to lie a file indicating the expected results of wez and cut

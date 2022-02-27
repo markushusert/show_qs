@@ -25,7 +25,9 @@ import mesh_data
 import error_calculation
 import paraview_interaction
 import partitions
-g_debugflag=False
+import settings_post
+
+g_debugflag=settings_post.g_debugflag
 g_dirs={"res":"Results","post":"Post","pics":"Pics"}
 
 def select_lower_half(pview_out_allpvd, pview_out_allpvdDisplay):
@@ -224,6 +226,7 @@ def parse_arguments():
 	for arg,value in parsed_options[0]:
 		if arg in ("-h","--help"):
 			print_helptext()
+		
 
 def print_helptext():
 	helptext=(

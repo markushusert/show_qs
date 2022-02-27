@@ -8,8 +8,9 @@ import output
 import scipy
 import customstats
 from scipy import stats
-
-g_debugflag=False
+import sys
+import settings_post
+g_debugflag=settings_post.g_debugflag
 g_main_file="Ilasrcut"
 g_nr_layers=12
 def get_wez_of_all_iters(iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction=1):
@@ -107,6 +108,7 @@ def get_wez_of_layer(layer_number,cut_iter_values,wez_iter_values):
 	return schnitt_acc/weight_acc, wez_acc/weight_acc,min_schnitt,max_schnitt,first_wez_uncut
 
 def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_dict,direction):
+	
 	#get wez and cut-width of a given cross_section(integer iter_phi_qs) and a given height(integer iter_z)
 	#partition_node_dict, dict as returned by partitions.read_partitions
 	#partition_vtk_data_dict, dict as returned by partitions.split_vtkdata
