@@ -169,7 +169,7 @@ def qs_statistics(qs,wez_layer,spalt_breite,wez_layer_outside,wez_layer_inside,c
 	stats["spaltbreite_oben"]=cut_iter_outside[-1]+cut_iter_inside[-1]
 	stats["spaltbreite_unten"]=cut_iter_outside[0]+cut_iter_inside[0]
 	stats["mean_wez"]=customstats.avg(wez_layer)
-	stats["cut_mean"]=customstats.avg(spalt_breite)
+	stats["mean_cut"]=customstats.avg(spalt_breite)
 	
 	
 	#wez_of_totally_cut_layers=[wez_mean[i] for i in layers_wich_are_totally_cut]
@@ -265,7 +265,7 @@ def global_evaluation(partition_vtk_data_dict,partition_node_dict):
 	volume_ratios=[1-VF,VF]
 	capacities=[mat_data["cm"]*mat_data["rm"],mat_data["cf"]*mat_data["rf"]]
 	temps_dampf=[mat_data["T1"],mat_data["T2"]]
-	enths_dampf=[mat_data["E1"],mat_data["E2"]]
+	enths_dampf=[mat_data["E1"]*mat_data["rm"],mat_data["E2"]*mat_data["rf"]]
 
 	for iter_r in range(mesh_data.g_mesh_data["r"]+1):#+1 because loop over nodes not elements
 		if iter_r == 0:

@@ -36,7 +36,7 @@ def write_global_stats(post_dir,energy_per_mat,volume_per_mat,energy_per_phase,v
 def write_error_file(post_dir,qs_to_eval,error_wez,error_delr,error_schicht,error_ges):
 	
 	error_file=os.path.join(post_dir,g_error_file_name.format(qs_to_eval=qs_to_eval))
-	stats={f"error_wez{qs_to_eval}":error_wez,f"error_delr{qs_to_eval}":error_delr,"error_schicht":error_schicht,f"error_ges{qs_to_eval}":error_ges}
+	stats={f"error_wez{qs_to_eval}":error_wez,f"error_spalt{qs_to_eval}":error_delr,"error_schicht":error_schicht,f"error_ges{qs_to_eval}":error_ges}
 	write_keyword_output(error_file,stats)
 
 def write_signed_errors(post_dir,qs_to_eval,error_laengs,error_quer):
