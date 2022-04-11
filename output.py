@@ -76,8 +76,8 @@ def plot_results(post_dir,qs_to_eval,cut_iter_outside,wez_iter_outside,cut_iter_
 	linewidth=2
 	handle_cut,=ax.plot(cut_iter_outside,y_values,color="red",label="kerf",linewidth=linewidth)
 	handle_wez,=ax.plot(wez_iter_outside+cut_iter_outside,y_values,color="blue",label="HAZ",linewidth=linewidth)
-	ax.plot(-cut_iter_inside,y_values,color="red",linewidth=linewidth)
-	ax.plot(-wez_iter_inside-cut_iter_inside,y_values,color="blue",linewidth=linewidth)
+	ax.plot(-cut_iter_inside,y_values,color="blue",linewidth=linewidth)
+	ax.plot(-wez_iter_inside-cut_iter_inside,y_values,color="red",linewidth=linewidth)
 	plt.legend(handles=[handle_cut,handle_wez],loc="upper right")
 
 	ax.set_ylim((-9e-05, 0.00189))
