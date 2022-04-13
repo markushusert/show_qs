@@ -74,14 +74,14 @@ def plot_results(post_dir,qs_to_eval,cut_iter_outside,wez_iter_outside,cut_iter_
 	y_values=np.linspace(0,g_specimen_thickness,nr_nodes)
 	fig, ax = plt.subplots()
 	linewidth=2
-	handle_cut,=ax.plot(cut_iter_outside,y_values,color="red",label="kerf",linewidth=linewidth)
-	handle_wez,=ax.plot(wez_iter_outside+cut_iter_outside,y_values,color="blue",label="HAZ",linewidth=linewidth)
-	ax.plot(-cut_iter_inside,y_values,color="blue",linewidth=linewidth)
-	ax.plot(-wez_iter_inside-cut_iter_inside,y_values,color="red",linewidth=linewidth)
+	handle_cut=plot_boundary(cut_iter_outside,y_values,ax,color="blue",label="kerf",linewidth=linewidth)
+	handle_wez=plot_boundary(wez_iter_outside+cut_iter_outside,y_values,ax,color="red",label="HAZ",linewidth=linewidth)
+	plot_boundary(-cut_iter_inside,y_values,ax,color="blue",linewidth=linewidth)
+	plot_boundary(-wez_iter_inside-cut_iter_inside,y_values,ax,color="red",linewidth=linewidth)
 	plt.legend(handles=[handle_cut,handle_wez],loc="upper right")
 
 	ax.set_ylim((-9e-05, 0.00189))
-	ax.set_xlim((-0.000255, 0.000255))#same limits so thaall plots are equally sized
+	ax.set_xlim((-0.000255, 0.000255))#same limits so that all plots are equally sized
 	ax.set_aspect('auto')
 	fig.savefig(plot_file)
 
@@ -100,6 +100,13 @@ def plot_results(post_dir,qs_to_eval,cut_iter_outside,wez_iter_outside,cut_iter_
 				overlay_image(experimental_pic,overlay_file,f"comparison{qs_to_eval}.jpg",16.9,(-4350,-800))#scale and position of overlay determined manually
 			else:
 				print(f"could not find background picture:{experimental_pic}")
+
+def plot_boundary(widths,y_values,ax,**kwargs):
+	y_values=[y_values[i] for i in range(len(y_values)) if widths[i]]
+	widths=[widths[i] for i in range(len(widths)) if widths[i]]
+	handle,=ax.plot(widths,y_values,**kwargs)
+	return handle
+#handle_cut,=ax.plot(cut_iter_outside,y_values,color="blue",label="kerf",linewidth=linewidth)
 def overlay_image(image_background,image_res,image_result,ratio,bound):
     #print(f"overlaying images:{image_background},{image_res}")
     background = Image.open(image_background)

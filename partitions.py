@@ -72,7 +72,8 @@ def read_partition_file(partition_file,node_partition):
                 local_node=int(linesplit[0])
                 global_node=int(linesplit[1])
                 node_partition[global_node].append((partition_id,local_node))
-
+def get_limits_of_global_id(pvdreader,arrayname):
+    pvdreader.PointData.GetArray(arrayname).GetRange()
 def get_array_value_of_global_id(node_partition,data_split_into_partitions,global_id,arrayname):
     #node_partition: dict as returned by read_partitions
     #data_split_into_partitions: dict as returned by split_vtkdata()

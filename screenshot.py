@@ -70,7 +70,6 @@ def make_screenshot_of_angle(angle,pview_out_allpvd,dir,timestep):
 	camera.Zoom(5)
 	create_pngs(selectiondisplay,angle,dir,timestep)
 	camera.Zoom(1/5)
-	
 	#delete selection after creating screenshot
 	Delete(selection)
 	del selection

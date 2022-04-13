@@ -8,19 +8,21 @@ from paraview.vtk.numpy_interface import dataset_adapter as dsa
 from paraview.vtk.numpy_interface import algorithms as algs
 from paraview import servermanager as sm
 from paraview.vtk.numpy_interface import dataset_adapter as dsa
+import sys
+sys.path.append(r'/home/markus/ParaView-5.9.0-MPI-Linux-Python3.8-64bit/python_scripts/auswerte_scripte')
+#g_script_dir = os.path.dirname(os.path.realpath(__file__))
+#sys.path.append(g_script_dir)
 import screenshot
 import numpy as np
 import matplotlib.pyplot as plt
 import customstats
 import math
 import os
-import sys
 import subprocess
 import getopt
 import output
 import evaluate
-g_script_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(g_script_dir)
+
 import mesh_data
 import error_calculation
 import paraview_interaction
@@ -198,7 +200,6 @@ def main():
 		renderView1.ViewTime=timestep
 		for qs_to_eval in error_calculation.g_qs_to_eval:
 			screenshot.make_screenshot_of_angle(qs_to_eval,pview_out_allpvd,g_dirs["pics"],timestep)
-		
 	partition_vtk_data_dict,partition_node_dict=setup_evaluation(pview_out_allpvd)
 	
 	uncut_ratio=global_evaluation(partition_vtk_data_dict,partition_node_dict)
