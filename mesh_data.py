@@ -12,7 +12,8 @@ def read_mesh_data():
     global g_mesh_data
     with open(g_mesh_file,"r") as fil:
         lines=fil.readlines()
-    g_mesh_data={key:None for key in ["r","p","z","start","dp_in","np_in"]}
+    g_mesh_data={key:None for key in ["r","p","z","start","dp_in","np_in","ellipse"]}
+    g_mesh_data["ellipse"]=1.0#default
     for line in lines:
         if line.lstrip().startswith("cmes"):
             for key in g_mesh_data.keys():
@@ -21,12 +22,16 @@ def read_mesh_data():
                     if key=="start":#start needed to find start of phi-variable
                         idx_to_read=3
                         g_mesh_data[key]=float(arguments[idx_to_read])
+                    elif key=="ellipse":#start needed to find start of phi-variable
+                        idx_to_read=2
+                        g_mesh_data[key]=float(arguments[idx_to_read])
                     else:
                         idx_to_read=2
                         g_mesh_data[key]=int(arguments[idx_to_read])
+
                     if key=="p":
                         g_mesh_data["dp_in"]=float(arguments[5])#inner area of phi
-                        g_mesh_data["np_in"]=float(arguments[3])#number of elemnts in inner area
+                        g_mesh_data["np_in"]=int(arguments[3])#number of elemnts in inner area
 
 def deduct_element_length(partition_vtk_data_dict,partition_node_dict):
     global g_delr_array, g_delphi_array, g_delz_array, g_r_array
@@ -53,7 +58,10 @@ def deduct_element_length(partition_vtk_data_dict,partition_node_dict):
         if iter_r == g_delr_array.shape[0]-1:
             g_r_array[iter_r+1]=radius
         g_delr_array[iter_r]=radius-radius_preceeding
-
+    angle=get_angle_of_iter_phi(iter_dict["p"])
+    scale=get_radius_scale(g_mesh_data["ellipse"],angle)
+    print(f"deducting delr_array:angle={angle},scale={scale}")
+    g_delr_array=g_delr_array/scale
     for iter_phi in range(g_delphi_array.shape[0]):
         #attention: for the last iter_phi indexing progresses to the next z-layer
         #but not a problem, since we only care about the angle
@@ -117,7 +125,14 @@ def deduct_iter_phi_to_eval(angle_of_qs):
     #angle=start+dp_in*iter/np_in
     #->iter=(angle-start)*np_in/dp_in
     return int((angle_of_qs-g_mesh_data["start"])*g_mesh_data["np_in"]/g_mesh_data["dp_in"])
-
+def get_angle_of_iter_phi(iter_phiqs):
+    return g_mesh_data["start"]+g_mesh_data["dp_in"]*iter_phiqs/g_mesh_data["np_in"]
+def get_radius_scale(aspect_ratio,angle):
+    #angle given in multiples of pi
+    angle1=math.pi*angle
+    return math.sqrt(
+        (math.cos(angle1)*aspect_ratio)**2+math.sin(angle1)**2
+        )
 if __name__=="__main__":
     
     read_mesh_data()

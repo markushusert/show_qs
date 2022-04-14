@@ -134,4 +134,4 @@ def write_results(filename,cut_iter_values,wez_iter_values):
 		cut_2d=np.reshape(cut_iter_values, (-1, 1))
 		wez_2d=np.reshape(wez_iter_values, (-1, 1))
 		data=np.concatenate((cut_2d,wez_2d),axis=1)
-		np.savetxt(fil,data,header="cut; wez")
+		np.savetxt(fil,data,header="cut; wez (from bottom to top)")

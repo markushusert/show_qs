@@ -149,6 +149,13 @@ def get_wez_of_iter_z(iter_z,iter_phi_qs,partition_node_dict,partition_vtk_data_
 			already_considered_vol_ratio+=phase_of_node[current_phase]#for more then 2 phases would need to be adapted by factor (1-already_considered_vol_ratio)
 			if g_debugflag:
 				print(f"already_considered_vol_ratio:{already_considered_vol_ratio}")
+	#apply aspect ratio:
+	aspect_ratio=mesh_data.g_mesh_data["ellipse"]
+	angle_evaluated=mesh_data.get_angle_of_iter_phi(iter_phi_qs)
+	factor=mesh_data.get_radius_scale(aspect_ratio,angle_evaluated)
+	list_of_values=[i*factor for i in list_of_values]
+	if True:
+		print(f"aspect_ratio:{aspect_ratio},angle_evaluated:{angle_evaluated},factor:{factor}")
 	return tuple(list_of_values)
 	
 
